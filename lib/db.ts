@@ -255,7 +255,7 @@ function buildWhereClause(filters?: FilterState, bounds?: Bounds): { where: stri
   }
 
   if (filters.zoek) {
-    conditions.push("(naam LIKE @zoek OR provincie LIKE @zoek OR eigenaar LIKE @zoek)");
+    conditions.push("(naam LIKE @zoek OR provincie LIKE @zoek OR eigenaar LIKE @zoek OR gemeente LIKE @zoek OR beschrijving LIKE @zoek)");
     params.zoek = `%${filters.zoek}%`;
   }
   if (filters.provincie.length > 0) {

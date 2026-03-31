@@ -1,0 +1,237 @@
+import { Sluis, FilterState, FilterOptions, Statistieken, defaultFilters } from './types';
+
+// --- API client functions (used by client components) ---
+
+export async function fetchSluizen(filters?: FilterState): Promise<Sluis[]> {
+  const params = new URLSearchParams();
+
+  if (filters) {
+    if (filters.zoek) params.set('zoek', filters.zoek);
+    filters.provincie.forEach((v) => params.append('provincie', v));
+    filters.gemeente.forEach((v) => params.append('gemeente', v));
+    filters.type.forEach((v) => params.append('type', v));
+    filters.categorie.forEach((v) => params.append('categorie', v));
+    filters.bron.forEach((v) => params.append('bron', v));
+    filters.bediening.forEach((v) => params.append('bediening', v));
+    filters.eigenaar.forEach((v) => params.append('eigenaar', v));
+    if (filters.lengteMin > 0) params.set('lengteMin', String(filters.lengteMin));
+    if (filters.lengteMax < 500) params.set('lengteMax', String(filters.lengteMax));
+    if (filters.breedteMin > 0) params.set('breedteMin', String(filters.breedteMin));
+    if (filters.breedteMax < 100) params.set('breedteMax', String(filters.breedteMax));
+    if (filters.bouwjaarMin > 1500) params.set('bouwjaarMin', String(filters.bouwjaarMin));
+    if (filters.bouwjaarMax < 2030) params.set('bouwjaarMax', String(filters.bouwjaarMax));
+    if (filters.heeftOpeningstijden) params.set('heeftOpeningstijden', 'true');
+    if (filters.heeftVhf) params.set('heeftVhf', 'true');
+    if (filters.heeftNaam) params.set('heeftNaam', 'true');
+    if (filters.heeftAfmetingen) params.set('heeftAfmetingen', 'true');
+    if (filters.heeftBeheerder) params.set('heeftBeheerder', 'true');
+    if (filters.sortering !== 'naam') params.set('sortering', filters.sortering);
+  }
+
+  const query = params.toString();
+  const url = query ? `/api/sluizen?${query}` : '/api/sluizen';
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('API fout');
+    return await res.json() as Sluis[];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchSluis(id: string): Promise<Sluis | null> {
+  try {
+    const res = await fetch(`/api/sluizen/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    return await res.json() as Sluis;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchFilterOptions(provincies?: string[]): Promise<FilterOptions> {
+  const params = new URLSearchParams();
+  params.set('options', 'true');
+  if (provincies) {
+    provincies.forEach((p) => params.append('provincie', p));
+  }
+  try {
+    const res = await fetch(`/api/sluizen?${params.toString()}`);
+    if (!res.ok) throw new Error('API fout');
+    return await res.json() as FilterOptions;
+  } catch {
+    return { provincies: [], gemeenten: [], types: [], categorieen: [], bronnen: [], bedieningen: [], eigenaars: [] };
+  }
+}
+
+export async function fetchStatistieken(): Promise<Statistieken | null> {
+  try {
+    const res = await fetch('/api/statistieken');
+    if (!res.ok) throw new Error('API fout');
+    return await res.json() as Statistieken;
+  } catch {
+    return null;
+  }
+}
+
+// Check if filters differ from defaults (to decide if we need query params)
+export function hasActiveFilters(filters: FilterState): boolean {
+  return (
+    filters.zoek !== '' ||
+    filters.provincie.length > 0 ||
+    filters.gemeente.length > 0 ||
+    filters.type.length > 0 ||
+    filters.categorie.length > 0 ||
+    filters.bron.length > 0 ||
+    filters.bediening.length > 0 ||
+    filters.eigenaar.length > 0 ||
+    filters.lengteMin > 0 ||
+    filters.lengteMax < 500 ||
+    filters.breedteMin > 0 ||
+    filters.breedteMax < 100 ||
+    filters.bouwjaarMin > 1500 ||
+    filters.bouwjaarMax < 2030 ||
+    filters.heeftOpeningstijden ||
+    filters.heeftVhf ||
+    filters.heeftNaam ||
+    filters.heeftAfmetingen ||
+    filters.heeftBeheerder
+  );
+}
+
+// --- Display helpers (used by both client and server) ---
+
+export function bedieningLabel(b: string): string {
+  const labels: Record<string, string> = {
+    zelfbediening: 'Zelfbediening',
+    drukknop: 'Drukknop',
+    handmatig: 'Handmatig',
+    elektrisch: 'Elektrisch',
+    motor: 'Motor',
+    afstandsbediening: 'Afstandsbediening',
+    hydraulisch: 'Hydraulisch',
+    automatisch: 'Automatisch',
+    hand: 'Handbediend',
+    onbekend: 'Onbekend',
+  };
+  return labels[b] || b;
+}
+
+export function bedieningColor(b: string): string {
+  const colors: Record<string, string> = {
+    zelfbediening: '#2563eb',
+    drukknop: '#16a34a',
+    handmatig: '#ea580c',
+    elektrisch: '#eab308',
+    motor: '#0891b2',
+    afstandsbediening: '#7c3aed',
+    hydraulisch: '#be185d',
+    automatisch: '#059669',
+    hand: '#ea580c',
+    onbekend: '#6b7280',
+  };
+  return colors[b] || '#6b7280';
+}
+
+export function typeColor(t: string): string {
+  const colors: Record<string, string> = {
+    schutsluis: '#2563eb',
+    sluis: '#2563eb',
+    spuisluis: '#ea580c',
+    sluisdeur: '#06b6d4',
+    stuw: '#16a34a',
+    gemaal: '#7c3aed',
+    vispassage: '#ec4899',
+  };
+  return colors[t] || '#6b7280';
+}
+
+export function typeLabel(t: string): string {
+  const labels: Record<string, string> = {
+    schutsluis: 'Schutsluis',
+    sluis: 'Sluis',
+    spuisluis: 'Spuisluis',
+    sluisdeur: 'Sluisdeur',
+    stuw: 'Stuw',
+    gemaal: 'Gemaal',
+    vispassage: 'Vispassage',
+  };
+  return labels[t] || t;
+}
+
+export function categorieLabel(c: string): string {
+  const labels: Record<string, string> = {
+    sluis: 'Sluis',
+    schutsluis: 'Schutsluis',
+    spuisluis: 'Spuisluis',
+    stuw: 'Stuw',
+    gemaal: 'Gemaal',
+    sluisdeur: 'Sluisdeur',
+    vispassage: 'Vispassage',
+  };
+  return labels[c] || c;
+}
+
+export function bronLabel(b: string): string {
+  const labels: Record<string, string> = {
+    OSM: 'OpenStreetMap',
+    BGT: 'BGT',
+    Rijkswaterstaat: 'Rijkswaterstaat',
+  };
+  return labels[b] || b;
+}
+
+export function parseSeamarkTags(tagsJson: string | null | undefined): Record<string, string> | null {
+  if (!tagsJson) return null;
+  try {
+    const tags = JSON.parse(tagsJson) as Record<string, string>;
+    const seamark: Record<string, string> = {};
+    for (const [key, value] of Object.entries(tags)) {
+      if (key.startsWith('seamark:')) {
+        const label = key.replace('seamark:', '').replace(/_/g, ' ');
+        seamark[label] = value;
+      }
+    }
+    return Object.keys(seamark).length > 0 ? seamark : null;
+  } catch {
+    return null;
+  }
+}
+
+export function wikipediaUrl(ref: string): string {
+  if (ref.startsWith('http')) return ref;
+  const parts = ref.split(':');
+  if (parts.length >= 2) {
+    const lang = parts[0];
+    const title = parts.slice(1).join(':');
+    return `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+  }
+  return `https://nl.wikipedia.org/wiki/${encodeURIComponent(ref)}`;
+}
+
+export function exportToCSV(sluizen: Sluis[], filename: string = 'sluizen.csv') {
+  const headers = [
+    'Naam', 'Provincie', 'Gemeente', 'Type', 'Bediening', 'Lengte (m)',
+    'Breedte (m)', 'Eigenaar', 'Bouwjaar', 'VHF', 'Lat', 'Lon',
+  ];
+
+  const rows = sluizen.map((s) => [
+    s.naam, s.provincie, s.gemeente ?? '', s.type, bedieningLabel(s.bediening),
+    s.lengte ?? '', s.breedte ?? '',
+    s.eigenaar ?? '', s.bouwjaar ?? '', s.vhf ?? '', s.lat, s.lon,
+  ]);
+
+  const csvContent = [
+    headers.join(';'),
+    ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')),
+  ].join('\n');
+
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}

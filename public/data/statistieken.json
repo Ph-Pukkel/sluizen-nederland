@@ -1,0 +1,89 @@
+{
+  "totaal": 71930,
+  "per_provincie": {
+    "Zuid-Holland": {
+      "aantal": 11724
+    },
+    "Noord-Holland": {
+      "aantal": 10517
+    },
+    "Noord-Brabant": {
+      "aantal": 8944
+    },
+    "Friesland": {
+      "aantal": 8070
+    },
+    "Overijssel": {
+      "aantal": 8029
+    },
+    "Gelderland": {
+      "aantal": 7632
+    },
+    "Onbekend": {
+      "aantal": 5066
+    },
+    "Drenthe": {
+      "aantal": 3742
+    },
+    "Groningen": {
+      "aantal": 2345
+    },
+    "Zeeland": {
+      "aantal": 1690
+    },
+    "Limburg": {
+      "aantal": 1451
+    },
+    "Utrecht": {
+      "aantal": 1391
+    },
+    "Flevoland": {
+      "aantal": 1329
+    }
+  },
+  "per_type": {
+    "stuw": 59243,
+    "gemaal": 8447,
+    "sluisdeur": 1540,
+    "dam": 804,
+    "sluis": 648,
+    "schutsluis": 577,
+    "vispassage": 421,
+    "spuisluis": 156,
+    "waterregulering": 76,
+    "waterwerk": 15,
+    "keersluis": 3
+  },
+  "per_categorie": {
+    "stuw": 60544,
+    "gemaal": 8462,
+    "sluisdeur": 1540,
+    "sluis": 777,
+    "schutsluis": 527,
+    "spuisluis": 80
+  },
+  "per_bediening": {
+    "onbekend": 71922,
+    "zelfbediening": 6,
+    "drukknop": 2
+  },
+  "per_bron": {
+    "bgt": 62144,
+    "osm": 9514,
+    "rws": 272
+  },
+  "grootteverdeling": {
+    "met_lengte": 259,
+    "met_breedte": 302,
+    "lengte_min": 10.0,
+    "lengte_max": 400.0,
+    "lengte_gemiddeld": 82.6,
+    "breedte_min": 0.1,
+    "breedte_max": 47.3,
+    "breedte_gemiddeld": 9.2
+  },
+  "met_naam": 1121,
+  "zonder_naam": 70809,
+  "datum_verwerkt": "2026-03-31",
+  "bron": "OpenStreetMap, BGT/PDOK, Rijkswaterstaat"
+}

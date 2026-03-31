@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# database (regenerated via npm run import)
+/database/sluizen.db
+/database/*.db-wal
+/database/*.db-shm
+/database/overpass-*.json
+# deploy database IS tracked (compact version for Vercel)
+!/database/sluizen_deploy.db

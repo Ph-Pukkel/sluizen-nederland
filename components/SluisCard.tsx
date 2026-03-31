@@ -152,13 +152,22 @@ export default function SluisCard({ sluis, compact = false }: SluisCardProps) {
                 Street View
               </a>
               <a
-                href={`https://earth.google.com/web/@${sluis.lat},${sluis.lon},100a,500d,35y,0h,45t,0r`}
+                href={`https://earth.google.com/web/search/${sluis.lat},${sluis.lon}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-[var(--accent)] hover:text-[var(--accent-light)] font-medium flex items-center gap-1"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 Google Earth
+              </a>
+              <a
+                href={`https://www.google.com/maps/@${sluis.lat},${sluis.lon},100m/data=!3m1!1e3`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[var(--accent)] hover:text-[var(--accent-light)] font-medium flex items-center gap-1"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Satellietfoto
               </a>
               {sluis.website && (
                 <a

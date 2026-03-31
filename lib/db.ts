@@ -426,6 +426,13 @@ export function computeStatistieken(filters?: FilterState) {
     db.prepare(`SELECT COUNT(*) as c FROM sluizen ${behWhere}`).get(params) as { c: number }
   ).c;
 
+  const fotoWhere = where
+    ? `${where} AND foto_url IS NOT NULL`
+    : "WHERE foto_url IS NOT NULL";
+  const metFoto = (
+    db.prepare(`SELECT COUNT(*) as c FROM sluizen ${fotoWhere}`).get(params) as { c: number }
+  ).c;
+
   return {
     totaal,
     provincies,
@@ -439,5 +446,53 @@ export function computeStatistieken(filters?: FilterState) {
     metNaam,
     metAfmetingen,
     metBeheerder,
+    metFoto,
+    provincieDetails: getProvincieDetailStatsInternal(where, params),
   };
+}
+
+function getProvincieDetailStatsInternal(where: string, params: Record<string, unknown>) {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT
+       provincie,
+       COUNT(*) as totaal,
+       SUM(CASE WHEN naam IS NOT NULL AND naam != '' THEN 1 ELSE 0 END) as metNaam,
+       SUM(CASE WHEN lengte IS NOT NULL THEN 1 ELSE 0 END) as metAfmetingen
+     FROM sluizen ${where}
+     GROUP BY provincie
+     ORDER BY COUNT(*) DESC`
+  ).all(params) as { provincie: string; totaal: number; metNaam: number; metAfmetingen: number }[];
+  return rows;
+}
+
+export function getFeaturedSluizen(limit = 6): Sluis[] {
+  const db = getDb();
+  return db.prepare(
+    `SELECT id, naam, lat, lon, type, bediening, provincie, gemeente, lengte, breedte, diepte, maxhoogte, eigenaar, bouwjaar, vhf, openingstijden, website, wikipedia, bron, categorie, foto_url, foto_bron, beschrijving, beheerder
+     FROM sluizen
+     WHERE foto_url IS NOT NULL AND naam IS NOT NULL AND naam != ''
+     ORDER BY
+       CASE WHEN wikipedia IS NOT NULL AND wikipedia != '' THEN 0 ELSE 1 END,
+       naam
+     LIMIT ?`
+  ).all(limit) as Sluis[];
+}
+
+export function getProvincieDetailStats(filters?: FilterState) {
+  const db = getDb();
+  const { where, params } = buildWhereClause(filters);
+
+  const rows = db.prepare(
+    `SELECT
+       provincie,
+       COUNT(*) as totaal,
+       SUM(CASE WHEN naam IS NOT NULL AND naam != '' THEN 1 ELSE 0 END) as metNaam,
+       SUM(CASE WHEN lengte IS NOT NULL THEN 1 ELSE 0 END) as metAfmetingen
+     FROM sluizen ${where}
+     GROUP BY provincie
+     ORDER BY COUNT(*) DESC`
+  ).all(params) as { provincie: string; totaal: number; metNaam: number; metAfmetingen: number }[];
+
+  return rows;
 }

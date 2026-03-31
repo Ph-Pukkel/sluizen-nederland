@@ -72,6 +72,16 @@ export async function fetchStatistieken(filters?: FilterState): Promise<Statisti
   }
 }
 
+export async function fetchFeatured(): Promise<Sluis[]> {
+  try {
+    const res = await fetch('/api/featured');
+    if (!res.ok) return [];
+    return await res.json() as Sluis[];
+  } catch {
+    return [];
+  }
+}
+
 export function filtersToSearchParams(filters: FilterState): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.zoek) params.set('zoek', filters.zoek);

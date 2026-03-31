@@ -211,13 +211,22 @@ export default function SluisDetailPage() {
                   Bekijk in Google Street View
                 </a>
                 <a
-                  href={`https://earth.google.com/web/@${sluis.lat},${sluis.lon},100a,500d,35y,0h,45t,0r`}
+                  href={`https://earth.google.com/web/search/${sluis.lat},${sluis.lon}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-[var(--accent)] hover:text-[var(--accent-light)] text-sm font-medium"
                 >
                   <ExternalLink className="w-4 h-4" />
                   Bekijk in Google Earth
+                </a>
+                <a
+                  href={`https://www.google.com/maps/@${sluis.lat},${sluis.lon},100m/data=!3m1!1e3`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-[var(--accent)] hover:text-[var(--accent-light)] text-sm font-medium"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Satellietfoto
                 </a>
               </div>
             </div>

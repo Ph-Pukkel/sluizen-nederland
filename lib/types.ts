@@ -90,6 +90,15 @@ export interface Statistieken {
   metNaam: number;
   metAfmetingen: number;
   metBeheerder: number;
+  metFoto: number;
+  provincieDetails: ProvincieDetailStats[];
+}
+
+export interface ProvincieDetailStats {
+  provincie: string;
+  totaal: number;
+  metNaam: number;
+  metAfmetingen: number;
 }
 
 export interface ProvincieStats {

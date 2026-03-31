@@ -7,6 +7,7 @@ import {
   fetchSluizen,
   fetchStatistieken,
   fetchFilterOptions,
+  fetchFeatured,
   exportToCSV,
   bedieningLabel,
   typeLabel,
@@ -16,6 +17,7 @@ import {
   filtersToSearchParams,
   searchParamsToFilters,
 } from "@/lib/utils";
+import Link from "next/link";
 import StatisticsTable from "@/components/StatisticsTable";
 import {
   Loader2,
@@ -31,6 +33,9 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  Camera,
+  ChevronRight,
+  Tag,
 } from "lucide-react";
 
 function MultiSelect({
@@ -122,13 +127,15 @@ function OverzichtContent() {
     bronnen: [],
     eigenaars: [],
   });
+  const [featured, setFeatured] = useState<Sluis[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Load filter options on mount
+  // Load filter options and featured sluizen on mount
   useEffect(() => {
     fetchFilterOptions().then(setFilterOptions);
+    fetchFeatured().then(setFeatured);
   }, []);
 
   // Fetch data when filters change (debounced)
@@ -336,8 +343,39 @@ function OverzichtContent() {
           </div>
         </div>
 
+        {/* Top sluizen */}
+        {featured.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
+              Uitgelichte sluizen
+            </h2>
+            <div className="flex gap-4 overflow-x-auto pb-2">
+              {featured.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/sluis/${s.id.split('/').map(encodeURIComponent).join('/')}`}
+                  className="flex-shrink-0 w-56 bg-white rounded-lg border border-[var(--border)] shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  {s.foto_url && (
+                    <img
+                      src={s.foto_url}
+                      alt={s.naam}
+                      className="w-full h-32 object-cover"
+                      loading="lazy"
+                    />
+                  )}
+                  <div className="p-3">
+                    <p className="font-semibold text-sm text-[var(--foreground)] truncate">{s.naam}</p>
+                    <p className="text-xs text-[var(--muted)]">{s.provincie}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Top stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <StatCard
             icon={<Anchor className="w-6 h-6" />}
             label="Gevonden"
@@ -362,10 +400,22 @@ function OverzichtContent() {
             value={stats.uniqueEigenaars}
             color="#7c3aed"
           />
+          <StatCard
+            icon={<Tag className="w-6 h-6" />}
+            label="Met naam"
+            value={stats.metNaam}
+            color="#0891b2"
+          />
+          <StatCard
+            icon={<Camera className="w-6 h-6" />}
+            label="Met foto"
+            value={stats.metFoto}
+            color="#d97706"
+          />
         </div>
 
         {/* Province stats */}
-        {stats.provincies.length > 0 && (
+        {stats.provincieDetails && stats.provincieDetails.length > 0 && (
           <section className="mb-8">
             <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
               Per provincie
@@ -380,38 +430,42 @@ function OverzichtContent() {
                     <th className="px-4 py-3 text-right font-semibold text-[var(--muted)] uppercase text-xs tracking-wide">
                       Totaal
                     </th>
-                    {stats.bedieningTypes.map((bt) => (
-                      <th
-                        key={bt}
-                        className="px-4 py-3 text-right font-semibold text-[var(--muted)] uppercase text-xs tracking-wide"
-                      >
-                        {bedieningLabel(bt)}
-                      </th>
-                    ))}
+                    <th className="px-4 py-3 text-right font-semibold text-[var(--muted)] uppercase text-xs tracking-wide">
+                      Met naam
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold text-[var(--muted)] uppercase text-xs tracking-wide">
+                      Met afmetingen
+                    </th>
+                    <th className="px-4 py-3 w-8"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
                   {[
-                    ...stats.provincies.filter((p) => p.naam !== "Onbekend"),
-                    ...stats.provincies.filter((p) => p.naam === "Onbekend"),
+                    ...stats.provincieDetails.filter((p) => p.provincie !== "Onbekend"),
+                    ...stats.provincieDetails.filter((p) => p.provincie === "Onbekend"),
                   ].map((p) => {
-                    const isOnbekend = p.naam === "Onbekend";
+                    const isOnbekend = p.provincie === "Onbekend";
                     return (
-                      <tr key={p.naam} className={`hover:bg-slate-50 ${isOnbekend ? "bg-slate-50" : ""}`}>
+                      <tr
+                        key={p.provincie}
+                        className={`hover:bg-slate-100 cursor-pointer transition-colors ${isOnbekend ? "bg-slate-50" : ""}`}
+                        onClick={() => update({ provincie: [p.provincie], gemeente: [] })}
+                      >
                         <td className={`px-4 py-2.5 font-medium ${isOnbekend ? "text-[var(--muted)] italic" : "text-[var(--foreground)]"}`}>
-                          {p.naam}
+                          {p.provincie}
                         </td>
                         <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${isOnbekend ? "text-[var(--muted)]" : "text-[var(--primary)]"}`}>
-                          {(p.totaal as number).toLocaleString("nl-NL")}
+                          {p.totaal.toLocaleString("nl-NL")}
                         </td>
-                        {stats.bedieningTypes.map((bt) => (
-                          <td
-                            key={bt}
-                            className="px-4 py-2.5 text-right text-[var(--muted)] tabular-nums"
-                          >
-                            {p[bt] || 0}
-                          </td>
-                        ))}
+                        <td className="px-4 py-2.5 text-right text-[var(--muted)] tabular-nums">
+                          {p.metNaam.toLocaleString("nl-NL")}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-[var(--muted)] tabular-nums">
+                          {p.metAfmetingen.toLocaleString("nl-NL")}
+                        </td>
+                        <td className="px-4 py-2.5 text-[var(--muted)]">
+                          <ChevronRight className="w-4 h-4" />
+                        </td>
                       </tr>
                     );
                   })}
@@ -431,7 +485,11 @@ function OverzichtContent() {
               <div className="bg-white rounded-lg border border-[var(--border)] p-6">
                 <div className="space-y-3">
                   {stats.categorieen.map(([cat, count]) => (
-                    <div key={cat}>
+                    <div
+                      key={cat}
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => update({ categorie: [cat] })}
+                    >
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="font-medium text-[var(--foreground)]">
                           {categorieLabel(cat)}
@@ -465,7 +523,11 @@ function OverzichtContent() {
               <div className="bg-white rounded-lg border border-[var(--border)] p-6">
                 <div className="space-y-3">
                   {stats.types.map(([type, count]) => (
-                    <div key={type}>
+                    <div
+                      key={type}
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => update({ type: [type] })}
+                    >
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="font-medium text-[var(--foreground)]">
                           {typeLabel(type)}

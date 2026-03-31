@@ -141,32 +141,39 @@ export default function SluisCard({ sluis, compact = false }: SluisCardProps) {
             </div>
 
             {/* External links */}
-            {(sluis.website || sluis.wikipedia) && (
-              <div className="mt-3 pt-3 border-t border-[var(--border)] flex flex-wrap gap-3">
-                {sluis.website && (
-                  <a
-                    href={sluis.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-[var(--accent)] hover:text-[var(--accent-light)] font-medium flex items-center gap-1"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Website
-                  </a>
-                )}
-                {sluis.wikipedia && (
-                  <a
-                    href={wikipediaUrl(sluis.wikipedia)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-[var(--accent)] hover:text-[var(--accent-light)] font-medium flex items-center gap-1"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Wikipedia
-                  </a>
-                )}
-              </div>
-            )}
+            <div className="mt-3 pt-3 border-t border-[var(--border)] flex flex-wrap gap-3">
+              <a
+                href={`https://www.google.com/maps?q=&layer=c&cbll=${sluis.lat},${sluis.lon}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[var(--accent)] hover:text-[var(--accent-light)] font-medium flex items-center gap-1"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Street View
+              </a>
+              {sluis.website && (
+                <a
+                  href={sluis.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[var(--accent)] hover:text-[var(--accent-light)] font-medium flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Website
+                </a>
+              )}
+              {sluis.wikipedia && (
+                <a
+                  href={wikipediaUrl(sluis.wikipedia)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[var(--accent)] hover:text-[var(--accent-light)] font-medium flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Wikipedia
+                </a>
+              )}
+            </div>
 
             {/* Detail page link */}
             <div className="mt-3 pt-3 border-t border-[var(--border)]">

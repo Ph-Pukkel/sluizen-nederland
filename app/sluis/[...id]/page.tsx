@@ -197,10 +197,19 @@ export default function SluisDetailPage() {
               <div className="px-6 py-4 border-b border-[var(--border)]">
                 <h2 className="font-semibold text-[var(--foreground)]">Locatie</h2>
               </div>
-              <div className="p-6">
+              <div className="p-6 space-y-3">
                 <p className="text-sm text-[var(--muted)]">
                   Coordinaten: {sluis.lat.toFixed(6)}, {sluis.lon.toFixed(6)}
                 </p>
+                <a
+                  href={`https://www.google.com/maps?q=&layer=c&cbll=${sluis.lat},${sluis.lon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-[var(--accent)] hover:text-[var(--accent-light)] text-sm font-medium"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Bekijk in Google Street View
+                </a>
               </div>
             </div>
 

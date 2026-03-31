@@ -210,6 +210,15 @@ export default function SluisDetailPage() {
                   <ExternalLink className="w-4 h-4" />
                   Bekijk in Google Street View
                 </a>
+                <a
+                  href={`https://earth.google.com/web/@${sluis.lat},${sluis.lon},100a,500d,35y,0h,45t,0r`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-[var(--accent)] hover:text-[var(--accent-light)] text-sm font-medium"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Bekijk in Google Earth
+                </a>
               </div>
             </div>
 

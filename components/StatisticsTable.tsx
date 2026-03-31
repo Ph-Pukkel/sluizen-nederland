@@ -3,17 +3,17 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Sluis, sluisDisplayNaam } from "@/lib/types";
-import { bedieningLabel, bedieningColor, typeColor, typeLabel } from "@/lib/utils";
-import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { bedieningLabel, bedieningColor, typeColor, typeLabel, categorieLabel, bronLabel } from "@/lib/utils";
+import { ArrowUpDown, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 
-type SortKey = "naam" | "provincie" | "gemeente" | "type" | "bediening" | "lengte" | "breedte" | "eigenaar";
+type SortKey = "naam" | "provincie" | "gemeente" | "categorie" | "type" | "bron" | "bediening" | "lengte" | "breedte" | "eigenaar";
 type SortDir = "asc" | "desc";
 
 interface StatisticsTableProps {
   sluizen: Sluis[];
 }
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 50;
 
 export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("naam");
@@ -33,8 +33,14 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
         case "gemeente":
           cmp = (a.gemeente ?? "").localeCompare(b.gemeente ?? "", "nl");
           break;
+        case "categorie":
+          cmp = (a.categorie ?? "").localeCompare(b.categorie ?? "", "nl");
+          break;
         case "type":
           cmp = a.type.localeCompare(b.type, "nl");
+          break;
+        case "bron":
+          cmp = (a.bron ?? "").localeCompare(b.bron ?? "", "nl");
           break;
         case "bediening":
           cmp = a.bediening.localeCompare(b.bediening, "nl");
@@ -70,7 +76,7 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
     const active = sortKey === colKey;
     return (
       <th
-        className="px-3 py-2.5 text-left text-xs font-semibold text-[var(--muted)] uppercase tracking-wide cursor-pointer hover:text-[var(--foreground)] select-none"
+        className="px-3 py-2.5 text-left text-xs font-semibold text-[var(--muted)] uppercase tracking-wide cursor-pointer hover:text-[var(--foreground)] select-none whitespace-nowrap"
         onClick={() => toggleSort(colKey)}
       >
         <span className="inline-flex items-center gap-1">
@@ -92,11 +98,16 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
               <SortHeader label="Naam" colKey="naam" />
               <SortHeader label="Provincie" colKey="provincie" />
               <SortHeader label="Gemeente" colKey="gemeente" />
+              <SortHeader label="Categorie" colKey="categorie" />
               <SortHeader label="Type" colKey="type" />
+              <SortHeader label="Bron" colKey="bron" />
               <SortHeader label="Bediening" colKey="bediening" />
               <SortHeader label="Lengte (m)" colKey="lengte" />
               <SortHeader label="Breedte (m)" colKey="breedte" />
               <SortHeader label="Eigenaar" colKey="eigenaar" />
+              <th className="px-3 py-2.5 text-left text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">
+                Foto
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
@@ -104,7 +115,7 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
               <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-3 py-2">
                   <Link
-                    href={`/sluis/${encodeURIComponent(s.id)}`}
+                    href={`/sluis/${s.id.split('/').map(encodeURIComponent).join('/')}`}
                     className="text-[var(--primary)] font-medium hover:underline"
                   >
                     {sluisDisplayNaam(s)}
@@ -112,6 +123,9 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
                 </td>
                 <td className="px-3 py-2 text-[var(--muted)]">{s.provincie}</td>
                 <td className="px-3 py-2 text-[var(--muted)]">{s.gemeente ?? "-"}</td>
+                <td className="px-3 py-2 text-[var(--muted)]">
+                  {s.categorie ? categorieLabel(s.categorie) : "-"}
+                </td>
                 <td className="px-3 py-2">
                   <span
                     className="text-white px-2 py-0.5 rounded text-xs"
@@ -119,6 +133,9 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
                   >
                     {typeLabel(s.type)}
                   </span>
+                </td>
+                <td className="px-3 py-2 text-[var(--muted)] text-xs">
+                  {s.bron ? bronLabel(s.bron) : "-"}
                 </td>
                 <td className="px-3 py-2">
                   <span
@@ -137,6 +154,21 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
                 <td className="px-3 py-2 text-[var(--muted)] truncate max-w-[200px]">
                   {s.eigenaar ?? "-"}
                 </td>
+                <td className="px-3 py-2">
+                  {s.foto_url ? (
+                    <a
+                      href={s.foto_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--accent)] hover:text-[var(--accent-light)]"
+                      title="Bekijk foto"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </a>
+                  ) : (
+                    <span className="text-[var(--border)]">-</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -146,8 +178,8 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-[var(--muted)]">
-            {page * PAGE_SIZE + 1} - {Math.min((page + 1) * PAGE_SIZE, sorted.length)} van{" "}
-            {sorted.length} sluizen
+            {(page * PAGE_SIZE + 1).toLocaleString("nl-NL")} - {Math.min((page + 1) * PAGE_SIZE, sorted.length).toLocaleString("nl-NL")} van{" "}
+            {sorted.length.toLocaleString("nl-NL")}
           </p>
           <div className="flex items-center gap-2">
             <button

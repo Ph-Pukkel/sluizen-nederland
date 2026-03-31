@@ -49,7 +49,11 @@ dst.exec(`
     website TEXT,
     wikipedia TEXT,
     bron TEXT,
-    categorie TEXT
+    categorie TEXT,
+    foto_url TEXT,
+    foto_bron TEXT,
+    beschrijving TEXT,
+    beheerder TEXT
   );
   CREATE INDEX idx_provincie ON sluizen(provincie);
   CREATE INDEX idx_type ON sluizen(type);
@@ -57,6 +61,9 @@ dst.exec(`
   CREATE INDEX idx_bron ON sluizen(bron);
   CREATE INDEX idx_categorie ON sluizen(categorie);
   CREATE INDEX idx_naam ON sluizen(naam);
+  CREATE INDEX idx_beheerder ON sluizen(beheerder);
+  CREATE INDEX idx_gemeente ON sluizen(gemeente);
+  CREATE INDEX idx_latlon ON sluizen(lat, lon);
 
   CREATE TABLE statistieken (
     key TEXT PRIMARY KEY,
@@ -67,12 +74,12 @@ dst.exec(`
 // Copy sluizen rows (without tags)
 const rows = src
   .prepare(
-    "SELECT id,naam,lat,lon,type,bediening,provincie,gemeente,lengte,breedte,diepte,maxhoogte,eigenaar,bouwjaar,vhf,openingstijden,website,wikipedia,bron,categorie FROM sluizen"
+    "SELECT id,naam,lat,lon,type,bediening,provincie,gemeente,lengte,breedte,diepte,maxhoogte,eigenaar,bouwjaar,vhf,openingstijden,website,wikipedia,bron,categorie,foto_url,foto_bron,beschrijving,beheerder FROM sluizen"
   )
   .all();
 
 const insert = dst.prepare(
-  `INSERT OR IGNORE INTO sluizen VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+  `INSERT OR IGNORE INTO sluizen VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 );
 const insertMany = dst.transaction((records) => {
   for (const r of records) {
@@ -80,7 +87,7 @@ const insertMany = dst.transaction((records) => {
       r.id, r.naam, r.lat, r.lon, r.type, r.bediening, r.provincie,
       r.gemeente, r.lengte, r.breedte, r.diepte, r.maxhoogte, r.eigenaar,
       r.bouwjaar, r.vhf, r.openingstijden, r.website, r.wikipedia,
-      r.bron, r.categorie
+      r.bron, r.categorie, r.foto_url, r.foto_bron, r.beschrijving, r.beheerder
     );
   }
 });

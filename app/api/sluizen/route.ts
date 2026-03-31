@@ -1,16 +1,12 @@
 import type { NextRequest } from "next/server";
-import { filterSluizen, getAllSluizen, getFilterOptions } from "@/lib/db";
+import { filterSluizen, countFilteredSluizen, getFilterOptions } from "@/lib/db";
+import type { Bounds } from "@/lib/db";
 import { defaultFilters, type FilterState } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-
-  // If no filter params, return all sluizen
-  const hasFilters = Array.from(searchParams.keys()).some(
-    (k) => k !== "options"
-  );
 
   // Return filter options if requested
   if (searchParams.get("options") === "true") {
@@ -21,10 +17,27 @@ export async function GET(request: NextRequest) {
     return Response.json(options);
   }
 
-  if (!hasFilters) {
-    const sluizen = getAllSluizen();
-    return Response.json(sluizen);
+  // Parse limit/offset
+  const limit = Math.min(
+    parseInt(searchParams.get("limit") || "10000"),
+    10000
+  );
+  const offset = parseInt(searchParams.get("offset") || "0");
+
+  // Parse bounds (minLat,minLon,maxLat,maxLon)
+  let bounds: Bounds | undefined;
+  const boundsParam = searchParams.get("bounds");
+  if (boundsParam) {
+    const parts = boundsParam.split(",").map(Number);
+    if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
+      bounds = { minLat: parts[0], minLon: parts[1], maxLat: parts[2], maxLon: parts[3] };
+    }
   }
+
+  // Check if there are actual filter params (not just limit/offset/bounds)
+  const hasFilters = Array.from(searchParams.keys()).some(
+    (k) => !["options", "limit", "offset", "bounds"].includes(k)
+  );
 
   // Parse filters from query params
   const filters: FilterState = {
@@ -35,7 +48,6 @@ export async function GET(request: NextRequest) {
     type: searchParams.getAll("type"),
     categorie: searchParams.getAll("categorie"),
     bron: searchParams.getAll("bron"),
-    bediening: searchParams.getAll("bediening"),
     eigenaar: searchParams.getAll("eigenaar"),
     lengteMin: Number(searchParams.get("lengteMin")) || 0,
     lengteMax: Number(searchParams.get("lengteMax")) || 500,
@@ -52,6 +64,17 @@ export async function GET(request: NextRequest) {
       (searchParams.get("sortering") as FilterState["sortering"]) || "naam",
   };
 
-  const sluizen = filterSluizen(filters);
-  return Response.json(sluizen);
+  if (!hasFilters) {
+    filters.categorie = [];
+  }
+
+  const totalCount = countFilteredSluizen(filters, bounds);
+  const sluizen = filterSluizen(filters, limit, offset, bounds);
+
+  return Response.json({
+    data: sluizen,
+    total_count: totalCount,
+    limit,
+    offset,
+  });
 }

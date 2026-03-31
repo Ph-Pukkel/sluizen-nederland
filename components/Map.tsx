@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet.markercluster";
 import { Sluis, sluisDisplayNaam } from "@/lib/types";
 import { typeColor, typeLabel, bedieningLabel } from "@/lib/utils";
+import type { MapBounds } from "@/lib/utils";
 
 // Fix default marker icons for Leaflet in bundled environments
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -27,7 +28,7 @@ function createPopupContent(sluis: Sluis): string {
   const naam = sluisDisplayNaam(sluis);
   return `
     <div style="padding:12px;font-family:system-ui,-apple-system,sans-serif;min-width:200px;">
-      <a href="/sluis/${encodeURIComponent(sluis.id)}" style="color:#003366;font-weight:600;font-size:15px;text-decoration:none;display:block;margin-bottom:4px;">
+      <a href="/sluis/${sluis.id.split('/').map(encodeURIComponent).join('/')}" style="color:#003366;font-weight:600;font-size:15px;text-decoration:none;display:block;margin-bottom:4px;">
         ${naam}
       </a>
       <div style="color:#64748b;font-size:12px;margin-bottom:8px;">
@@ -39,9 +40,6 @@ function createPopupContent(sluis: Sluis): string {
       </div>
       ${sluis.lengte ? `<div style="font-size:12px;color:#64748b;">Afmeting: ${sluis.lengte}m x ${sluis.breedte ?? "?"}m</div>` : ""}
       ${sluis.eigenaar ? `<div style="font-size:12px;color:#64748b;">Beheerder: ${sluis.eigenaar}</div>` : ""}
-      <a href="/sluis/${encodeURIComponent(sluis.id)}" style="display:inline-block;margin-top:8px;color:#FF6600;font-size:12px;font-weight:500;text-decoration:none;">
-        Bekijk details &rarr;
-      </a>
     </div>
   `;
 }
@@ -49,12 +47,15 @@ function createPopupContent(sluis: Sluis): string {
 interface MapComponentProps {
   sluizen: Sluis[];
   onSluisSelect?: (sluis: Sluis) => void;
+  onBoundsChange?: (bounds: MapBounds) => void;
 }
 
-export default function MapComponent({ sluizen, onSluisSelect }: MapComponentProps) {
+export default function MapComponent({ sluizen, onSluisSelect, onBoundsChange }: MapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  onBoundsChangeRef.current = onBoundsChange;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -81,13 +82,39 @@ export default function MapComponent({ sluizen, onSluisSelect }: MapComponentPro
         "background:white;padding:8px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-size:12px;font-family:system-ui;line-height:1.6;";
       div.innerHTML = `
         <div style="font-weight:600;margin-bottom:4px;color:#1e293b;">Type</div>
-        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#2563eb;display:inline-block;"></span> Schutsluis</div>
-        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block;"></span> Spuisluis</div>
-        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Sluisdeur</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#2563eb;display:inline-block;"></span> Sluis / Schutsluis</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block;"></span> Stuw</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#7c3aed;display:inline-block;"></span> Gemaal</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#ea580c;display:inline-block;"></span> Spuisluis</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#06b6d4;display:inline-block;"></span> Sluisdeur</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#ec4899;display:inline-block;"></span> Vispassage</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:#6b7280;display:inline-block;"></span> Overig</div>
       `;
       return div;
     };
     legend.addTo(map);
+
+    // Emit initial bounds after map is ready
+    map.whenReady(() => {
+      const b = map.getBounds();
+      onBoundsChangeRef.current?.({
+        minLat: b.getSouth(),
+        minLon: b.getWest(),
+        maxLat: b.getNorth(),
+        maxLon: b.getEast(),
+      });
+    });
+
+    // Emit bounds on moveend (covers both pan and zoom)
+    map.on("moveend", () => {
+      const b = map.getBounds();
+      onBoundsChangeRef.current?.({
+        minLat: b.getSouth(),
+        minLon: b.getWest(),
+        maxLat: b.getNorth(),
+        maxLon: b.getEast(),
+      });
+    });
 
     mapRef.current = map;
 

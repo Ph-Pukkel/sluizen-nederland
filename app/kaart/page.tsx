@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Sluis, FilterState, defaultFilters } from "@/lib/types";
 import { fetchSluizen, fetchFilterOptions } from "@/lib/utils";
+import type { MapBounds } from "@/lib/utils";
 import type { FilterOptions } from "@/lib/types";
 import FilterPanel from "@/components/FilterPanel";
 import SluisCard from "@/components/SluisCard";
@@ -26,26 +27,32 @@ export default function KaartPage() {
     provincies: [],
     gemeenten: [],
     types: [],
-    bedieningen: [],
+    categorieen: [],
+    bronnen: [],
     eigenaars: [],
   });
   const [selectedSluis, setSelectedSluis] = useState<Sluis | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [bounds, setBounds] = useState<MapBounds | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const totalCountRef = useRef(0);
 
   // Load filter options on mount
   useEffect(() => {
     fetchFilterOptions().then(setFilterOptions);
   }, []);
 
-  // Load sluizen with debounced filter
+  // Load sluizen when filters or bounds change (debounced)
   useEffect(() => {
+    if (!bounds) return;
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(() => {
       setLoading(true);
-      fetchSluizen(filters).then((data) => {
-        setSluizen(data);
+      fetchSluizen(filters, 10000, 0, bounds).then((res) => {
+        setSluizen(res.data);
+        totalCountRef.current = res.total_count;
         setLoading(false);
       });
     }, 200);
@@ -53,7 +60,7 @@ export default function KaartPage() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [filters]);
+  }, [filters, bounds]);
 
   // Update gemeenten when provincie changes
   useEffect(() => {
@@ -68,16 +75,9 @@ export default function KaartPage() {
     setSelectedSluis(sluis);
   }, []);
 
-  if (loading && sluizen.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-[var(--primary)] mx-auto mb-4" />
-          <p className="text-[var(--muted)]">Sluizen laden...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleBoundsChange = useCallback((newBounds: MapBounds) => {
+    setBounds(newBounds);
+  }, []);
 
   return (
     <div className="flex-1 flex overflow-hidden relative">
@@ -109,12 +109,19 @@ export default function KaartPage() {
 
       {/* Map area */}
       <div className="flex-1 relative">
-        <MapComponent sluizen={sluizen} onSluisSelect={handleSluisSelect} />
+        <MapComponent
+          sluizen={sluizen}
+          onSluisSelect={handleSluisSelect}
+          onBoundsChange={handleBoundsChange}
+        />
 
         {/* Result count overlay */}
         <div className="absolute bottom-4 left-4 z-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-md px-3 py-2 text-sm">
-          <span className="font-semibold text-[var(--primary)]">{sluizen.length}</span>
-          <span className="text-[var(--muted)]"> sluizen op de kaart</span>
+          <span className="font-semibold text-[var(--primary)]">{sluizen.length.toLocaleString("nl-NL")}</span>
+          <span className="text-[var(--muted)]"> waterstructuren in beeld</span>
+          {totalCountRef.current > sluizen.length && (
+            <span className="text-[var(--muted)]"> (van {totalCountRef.current.toLocaleString("nl-NL")})</span>
+          )}
           {loading && (
             <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--accent)] inline-block ml-2" />
           )}
@@ -123,10 +130,10 @@ export default function KaartPage() {
 
       {/* Selected sluis detail panel */}
       {selectedSluis && (
-        <div className="w-80 shrink-0 overflow-y-auto border-l border-[var(--border)] bg-white max-md:absolute max-md:inset-y-0 max-md:right-0 max-md:z-20 max-md:shadow-xl">
+        <div className="w-96 shrink-0 overflow-y-auto border-l border-[var(--border)] bg-white max-md:absolute max-md:inset-y-0 max-md:right-0 max-md:z-20 max-md:shadow-xl">
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-[var(--foreground)]">Sluis details</h3>
+              <h3 className="font-semibold text-[var(--foreground)]">Details</h3>
               <button
                 onClick={() => setSelectedSluis(null)}
                 className="p-1 rounded hover:bg-slate-100"

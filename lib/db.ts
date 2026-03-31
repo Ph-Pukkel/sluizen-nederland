@@ -52,13 +52,18 @@ function initializeDatabaseFromJson() {
       wikipedia TEXT,
       tags TEXT,
       bron TEXT,
-      categorie TEXT
+      categorie TEXT,
+      foto_url TEXT,
+      foto_bron TEXT,
+      beschrijving TEXT,
+      beheerder TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_provincie ON sluizen(provincie);
     CREATE INDEX IF NOT EXISTS idx_type ON sluizen(type);
     CREATE INDEX IF NOT EXISTS idx_bediening ON sluizen(bediening);
     CREATE INDEX IF NOT EXISTS idx_gemeente ON sluizen(gemeente);
     CREATE INDEX IF NOT EXISTS idx_eigenaar ON sluizen(eigenaar);
+    CREATE INDEX IF NOT EXISTS idx_latlon ON sluizen(lat, lon);
   `);
 
   const jsonPath = path.join(process.cwd(), "public", "data", "sluizen.json");
@@ -106,7 +111,7 @@ export function getAllSluizen(): Sluis[] {
   const db = getDb();
   return db
     .prepare(
-      "SELECT id, naam, lat, lon, type, bediening, provincie, gemeente, lengte, breedte, diepte, maxhoogte, eigenaar, bouwjaar, vhf, openingstijden, website, wikipedia, bron, categorie FROM sluizen ORDER BY provincie, naam"
+      "SELECT id, naam, lat, lon, type, bediening, provincie, gemeente, lengte, breedte, diepte, maxhoogte, eigenaar, bouwjaar, vhf, openingstijden, website, wikipedia, bron, categorie, foto_url, foto_bron, beschrijving, beheerder FROM sluizen ORDER BY provincie, naam"
     )
     .all() as Sluis[];
 }
@@ -117,123 +122,24 @@ export function getSluisById(id: string): (Sluis & { tags: string }) | null {
   return (row as (Sluis & { tags: string }) | undefined) ?? null;
 }
 
-export function filterSluizen(filters: FilterState): Sluis[] {
+export function countFilteredSluizen(filters: FilterState, bounds?: Bounds): number {
   const db = getDb();
-  const conditions: string[] = [];
-  const params: Record<string, unknown> = {};
+  const { where, params } = buildWhereClause(filters, bounds);
+  const row = db.prepare(`SELECT COUNT(*) as c FROM sluizen ${where}`).get(params) as { c: number };
+  return row.c;
+}
 
-  if (filters.zoek) {
-    conditions.push(
-      "(naam LIKE @zoek OR provincie LIKE @zoek OR eigenaar LIKE @zoek)"
-    );
-    params.zoek = `%${filters.zoek}%`;
-  }
-
-  if (filters.provincie.length > 0) {
-    const placeholders = filters.provincie.map((_, i) => `@prov${i}`);
-    conditions.push(`provincie IN (${placeholders.join(",")})`);
-    filters.provincie.forEach((p, i) => {
-      params[`prov${i}`] = p;
-    });
-  }
-
-  if (filters.type.length > 0) {
-    const placeholders = filters.type.map((_, i) => `@type${i}`);
-    conditions.push(`type IN (${placeholders.join(",")})`);
-    filters.type.forEach((t, i) => {
-      params[`type${i}`] = t;
-    });
-  }
-
-  if (filters.bediening.length > 0) {
-    const placeholders = filters.bediening.map((_, i) => `@bed${i}`);
-    conditions.push(`bediening IN (${placeholders.join(",")})`);
-    filters.bediening.forEach((b, i) => {
-      params[`bed${i}`] = b;
-    });
-  }
-
-  if (filters.eigenaar.length > 0) {
-    const placeholders = filters.eigenaar.map((_, i) => `@eig${i}`);
-    conditions.push(`eigenaar IN (${placeholders.join(",")})`);
-    filters.eigenaar.forEach((e, i) => {
-      params[`eig${i}`] = e;
-    });
-  }
-
-  if (filters.gemeente.length > 0) {
-    const placeholders = filters.gemeente.map((_, i) => `@gem${i}`);
-    conditions.push(`gemeente IN (${placeholders.join(",")})`);
-    filters.gemeente.forEach((g, i) => {
-      params[`gem${i}`] = g;
-    });
-  }
-
-  if (filters.categorie?.length > 0) {
-    const placeholders = filters.categorie.map((_, i) => `@cat${i}`);
-    conditions.push(`categorie IN (${placeholders.join(",")})`);
-    filters.categorie.forEach((c, i) => {
-      params[`cat${i}`] = c;
-    });
-  }
-
-  if (filters.bron?.length > 0) {
-    const placeholders = filters.bron.map((_, i) => `@bron${i}`);
-    conditions.push(`bron IN (${placeholders.join(",")})`);
-    filters.bron.forEach((b, i) => {
-      params[`bron${i}`] = b;
-    });
-  }
-
-  if (filters.lengteMin > 0) {
-    conditions.push("(lengte IS NULL OR lengte >= @lengteMin)");
-    params.lengteMin = filters.lengteMin;
-  }
-  if (filters.lengteMax < 500) {
-    conditions.push("(lengte IS NULL OR lengte <= @lengteMax)");
-    params.lengteMax = filters.lengteMax;
-  }
-
-  if (filters.breedteMin > 0) {
-    conditions.push("(breedte IS NULL OR breedte >= @breedteMin)");
-    params.breedteMin = filters.breedteMin;
-  }
-  if (filters.breedteMax < 100) {
-    conditions.push("(breedte IS NULL OR breedte <= @breedteMax)");
-    params.breedteMax = filters.breedteMax;
-  }
-
-  if (filters.bouwjaarMin > 1500) {
-    conditions.push("(bouwjaar IS NULL OR bouwjaar >= @bouwjaarMin)");
-    params.bouwjaarMin = filters.bouwjaarMin;
-  }
-  if (filters.bouwjaarMax < 2030) {
-    conditions.push("(bouwjaar IS NULL OR bouwjaar <= @bouwjaarMax)");
-    params.bouwjaarMax = filters.bouwjaarMax;
-  }
-
-  if (filters.heeftOpeningstijden) {
-    conditions.push("openingstijden IS NOT NULL");
-  }
-  if (filters.heeftVhf) {
-    conditions.push("vhf IS NOT NULL");
-  }
-  if (filters.heeftNaam) {
-    conditions.push("naam IS NOT NULL AND naam != ''");
-  }
-  if (filters.heeftAfmetingen) {
-    conditions.push("lengte IS NOT NULL");
-  }
-  if (filters.heeftBeheerder) {
-    conditions.push("eigenaar IS NOT NULL AND eigenaar != ''");
-  }
+export function filterSluizen(filters: FilterState, limit?: number, offset?: number, bounds?: Bounds): Sluis[] {
+  const db = getDb();
+  const { where, params } = buildWhereClause(filters, bounds);
 
   let orderBy = "provincie, naam";
   if (filters.sortering === "naam") orderBy = "naam";
   else if (filters.sortering === "grootte") orderBy = "lengte DESC";
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const sql = `SELECT id, naam, lat, lon, type, bediening, provincie, gemeente, lengte, breedte, diepte, maxhoogte, eigenaar, bouwjaar, vhf, openingstijden, website, wikipedia, bron, categorie FROM sluizen ${where} ORDER BY ${orderBy}`;
+  const limitClause = limit != null ? ` LIMIT ${limit}` : "";
+  const offsetClause = offset != null && offset > 0 ? ` OFFSET ${offset}` : "";
+  const sql = `SELECT id, naam, lat, lon, type, bediening, provincie, gemeente, lengte, breedte, diepte, maxhoogte, eigenaar, bouwjaar, vhf, openingstijden, website, wikipedia, bron, categorie, foto_url, foto_bron, beschrijving, beheerder FROM sluizen ${where} ORDER BY ${orderBy}${limitClause}${offsetClause}`;
 
   return db.prepare(sql).all(params) as Sluis[];
 }
@@ -296,7 +202,6 @@ export function getFilterOptions(provincie?: string[]): {
   types: string[];
   categorieen: string[];
   bronnen: string[];
-  bedieningen: string[];
   eigenaars: string[];
 } {
   const db = getDb();
@@ -304,7 +209,6 @@ export function getFilterOptions(provincie?: string[]): {
   const types = getUniqueValues("type");
   const categorieen = getUniqueValues("categorie");
   const bronnen = getUniqueValues("bron");
-  const bedieningen = getUniqueValues("bediening");
   const eigenaars = getUniqueValues("eigenaar");
 
   let gemeenten: string[];
@@ -322,20 +226,116 @@ export function getFilterOptions(provincie?: string[]): {
     gemeenten = getUniqueValues("gemeente");
   }
 
-  return { provincies, gemeenten, types, categorieen, bronnen, bedieningen, eigenaars };
+  return { provincies, gemeenten, types, categorieen, bronnen, eigenaars };
 }
 
-export function computeStatistieken() {
-  const db = getDb();
+export interface Bounds {
+  minLat: number;
+  minLon: number;
+  maxLat: number;
+  maxLon: number;
+}
 
-  const totaal = countSluizen();
+function buildWhereClause(filters?: FilterState, bounds?: Bounds): { where: string; params: Record<string, unknown> } {
+  const conditions: string[] = [];
+  const params: Record<string, unknown> = {};
+
+  if (bounds) {
+    conditions.push("lat BETWEEN @minLat AND @maxLat");
+    conditions.push("lon BETWEEN @minLon AND @maxLon");
+    params.minLat = bounds.minLat;
+    params.maxLat = bounds.maxLat;
+    params.minLon = bounds.minLon;
+    params.maxLon = bounds.maxLon;
+  }
+
+  if (!filters) {
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    return { where, params };
+  }
+
+  if (filters.zoek) {
+    conditions.push("(naam LIKE @zoek OR provincie LIKE @zoek OR eigenaar LIKE @zoek)");
+    params.zoek = `%${filters.zoek}%`;
+  }
+  if (filters.provincie.length > 0) {
+    const ph = filters.provincie.map((_, i) => `@fp${i}`);
+    conditions.push(`provincie IN (${ph.join(",")})`);
+    filters.provincie.forEach((p, i) => { params[`fp${i}`] = p; });
+  }
+  if (filters.gemeente.length > 0) {
+    const ph = filters.gemeente.map((_, i) => `@fg${i}`);
+    conditions.push(`gemeente IN (${ph.join(",")})`);
+    filters.gemeente.forEach((g, i) => { params[`fg${i}`] = g; });
+  }
+  if (filters.type.length > 0) {
+    const ph = filters.type.map((_, i) => `@ft${i}`);
+    conditions.push(`type IN (${ph.join(",")})`);
+    filters.type.forEach((t, i) => { params[`ft${i}`] = t; });
+  }
+  if (filters.categorie.length > 0) {
+    const ph = filters.categorie.map((_, i) => `@fc${i}`);
+    conditions.push(`categorie IN (${ph.join(",")})`);
+    filters.categorie.forEach((c, i) => { params[`fc${i}`] = c; });
+  }
+  if (filters.bron.length > 0) {
+    const ph = filters.bron.map((_, i) => `@fb${i}`);
+    conditions.push(`bron IN (${ph.join(",")})`);
+    filters.bron.forEach((b, i) => { params[`fb${i}`] = b; });
+  }
+  if (filters.eigenaar.length > 0) {
+    const ph = filters.eigenaar.map((_, i) => `@fe${i}`);
+    conditions.push(`eigenaar IN (${ph.join(",")})`);
+    filters.eigenaar.forEach((e, i) => { params[`fe${i}`] = e; });
+  }
+  if (filters.lengteMin > 0) {
+    conditions.push("(lengte IS NULL OR lengte >= @flmin)");
+    params.flmin = filters.lengteMin;
+  }
+  if (filters.lengteMax < 500) {
+    conditions.push("(lengte IS NULL OR lengte <= @flmax)");
+    params.flmax = filters.lengteMax;
+  }
+  if (filters.breedteMin > 0) {
+    conditions.push("(breedte IS NULL OR breedte >= @fbmin)");
+    params.fbmin = filters.breedteMin;
+  }
+  if (filters.breedteMax < 100) {
+    conditions.push("(breedte IS NULL OR breedte <= @fbmax)");
+    params.fbmax = filters.breedteMax;
+  }
+  if (filters.bouwjaarMin > 1500) {
+    conditions.push("(bouwjaar IS NULL OR bouwjaar >= @fbjmin)");
+    params.fbjmin = filters.bouwjaarMin;
+  }
+  if (filters.bouwjaarMax < 2030) {
+    conditions.push("(bouwjaar IS NULL OR bouwjaar <= @fbjmax)");
+    params.fbjmax = filters.bouwjaarMax;
+  }
+  if (filters.heeftOpeningstijden) conditions.push("openingstijden IS NOT NULL");
+  if (filters.heeftVhf) conditions.push("vhf IS NOT NULL");
+  if (filters.heeftNaam) conditions.push("naam IS NOT NULL AND naam != ''");
+  if (filters.heeftAfmetingen) conditions.push("lengte IS NOT NULL");
+  if (filters.heeftBeheerder) conditions.push("eigenaar IS NOT NULL AND eigenaar != ''");
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  return { where, params };
+}
+
+export function computeStatistieken(filters?: FilterState) {
+  const db = getDb();
+  const { where, params } = buildWhereClause(filters);
+
+  const totaal = (
+    db.prepare(`SELECT COUNT(*) as c FROM sluizen ${where}`).get(params) as { c: number }
+  ).c;
 
   // Province stats with bediening breakdown
   const provRows = db
     .prepare(
-      `SELECT provincie, bediening, COUNT(*) as count FROM sluizen GROUP BY provincie, bediening ORDER BY provincie`
+      `SELECT provincie, bediening, COUNT(*) as count FROM sluizen ${where} GROUP BY provincie, bediening ORDER BY provincie`
     )
-    .all() as { provincie: string; bediening: string; count: number }[];
+    .all(params) as { provincie: string; bediening: string; count: number }[];
 
   const bedieningTypes = [...new Set(provRows.map((r) => r.bediening))].sort();
 
@@ -356,54 +356,74 @@ export function computeStatistieken() {
   // Type stats
   const typeRows = db
     .prepare(
-      `SELECT type, COUNT(*) as count FROM sluizen GROUP BY type ORDER BY count DESC`
+      `SELECT type, COUNT(*) as count FROM sluizen ${where} GROUP BY type ORDER BY count DESC`
     )
-    .all() as { type: string; count: number }[];
+    .all(params) as { type: string; count: number }[];
   const types: [string, number][] = typeRows.map((r) => [r.type, r.count]);
 
   // Categorie stats
+  const catWhere = where
+    ? `${where} AND categorie IS NOT NULL AND categorie != ''`
+    : "WHERE categorie IS NOT NULL AND categorie != ''";
   const catRows = db
     .prepare(
-      `SELECT categorie, COUNT(*) as count FROM sluizen WHERE categorie IS NOT NULL AND categorie != '' GROUP BY categorie ORDER BY count DESC`
+      `SELECT categorie, COUNT(*) as count FROM sluizen ${catWhere} GROUP BY categorie ORDER BY count DESC`
     )
-    .all() as { categorie: string; count: number }[];
+    .all(params) as { categorie: string; count: number }[];
   const categorieen: [string, number][] = catRows.map((r) => [r.categorie, r.count]);
 
   // Bron stats
+  const bronWhere = where
+    ? `${where} AND bron IS NOT NULL AND bron != ''`
+    : "WHERE bron IS NOT NULL AND bron != ''";
   const bronRows = db
     .prepare(
-      `SELECT bron, COUNT(*) as count FROM sluizen WHERE bron IS NOT NULL AND bron != '' GROUP BY bron ORDER BY count DESC`
+      `SELECT bron, COUNT(*) as count FROM sluizen ${bronWhere} GROUP BY bron ORDER BY count DESC`
     )
-    .all() as { bron: string; count: number }[];
+    .all(params) as { bron: string; count: number }[];
   const bronnen: [string, number][] = bronRows.map((r) => [r.bron, r.count]);
 
   // Unique counts
+  const provWhere = where
+    ? `${where} AND provincie != 'Onbekend'`
+    : "WHERE provincie != 'Onbekend'";
   const uniqueProvincies = (
-    db.prepare(`SELECT COUNT(DISTINCT provincie) as c FROM sluizen WHERE provincie != 'Onbekend'`).get() as { c: number }
-  ).c;
-  const uniqueGemeenten = (
-    db
-      .prepare(
-        `SELECT COUNT(DISTINCT gemeente) as c FROM sluizen WHERE gemeente IS NOT NULL AND gemeente != ''`
-      )
-      .get() as { c: number }
-  ).c;
-  const uniqueEigenaars = (
-    db
-      .prepare(
-        `SELECT COUNT(DISTINCT eigenaar) as c FROM sluizen WHERE eigenaar IS NOT NULL AND eigenaar != ''`
-      )
-      .get() as { c: number }
+    db.prepare(`SELECT COUNT(DISTINCT provincie) as c FROM sluizen ${provWhere}`).get(params) as { c: number }
   ).c;
 
+  const gemWhere = where
+    ? `${where} AND gemeente IS NOT NULL AND gemeente != ''`
+    : "WHERE gemeente IS NOT NULL AND gemeente != ''";
+  const uniqueGemeenten = (
+    db.prepare(`SELECT COUNT(DISTINCT gemeente) as c FROM sluizen ${gemWhere}`).get(params) as { c: number }
+  ).c;
+
+  const eigWhere = where
+    ? `${where} AND eigenaar IS NOT NULL AND eigenaar != ''`
+    : "WHERE eigenaar IS NOT NULL AND eigenaar != ''";
+  const uniqueEigenaars = (
+    db.prepare(`SELECT COUNT(DISTINCT eigenaar) as c FROM sluizen ${eigWhere}`).get(params) as { c: number }
+  ).c;
+
+  const naamWhere = where
+    ? `${where} AND naam IS NOT NULL AND naam != ''`
+    : "WHERE naam IS NOT NULL AND naam != ''";
   const metNaam = (
-    db.prepare(`SELECT COUNT(*) as c FROM sluizen WHERE naam IS NOT NULL AND naam != ''`).get() as { c: number }
+    db.prepare(`SELECT COUNT(*) as c FROM sluizen ${naamWhere}`).get(params) as { c: number }
   ).c;
+
+  const afmWhere = where
+    ? `${where} AND lengte IS NOT NULL`
+    : "WHERE lengte IS NOT NULL";
   const metAfmetingen = (
-    db.prepare(`SELECT COUNT(*) as c FROM sluizen WHERE lengte IS NOT NULL`).get() as { c: number }
+    db.prepare(`SELECT COUNT(*) as c FROM sluizen ${afmWhere}`).get(params) as { c: number }
   ).c;
+
+  const behWhere = where
+    ? `${where} AND beheerder IS NOT NULL AND beheerder != ''`
+    : "WHERE beheerder IS NOT NULL AND beheerder != ''";
   const metBeheerder = (
-    db.prepare(`SELECT COUNT(*) as c FROM sluizen WHERE eigenaar IS NOT NULL AND eigenaar != ''`).get() as { c: number }
+    db.prepare(`SELECT COUNT(*) as c FROM sluizen ${behWhere}`).get(params) as { c: number }
   ).c;
 
   return {

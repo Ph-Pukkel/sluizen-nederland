@@ -1,8 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Sluis, Statistieken } from "@/lib/types";
-import { fetchSluizen, fetchStatistieken, exportToCSV, bedieningLabel } from "@/lib/utils";
+import { Suspense, useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Sluis, Statistieken, FilterState, FilterOptions, overzichtDefaultFilters } from "@/lib/types";
+import {
+  fetchSluizen,
+  fetchStatistieken,
+  fetchFilterOptions,
+  exportToCSV,
+  bedieningLabel,
+  typeLabel,
+  typeColor,
+  categorieLabel,
+  bronLabel,
+  filtersToSearchParams,
+  searchParamsToFilters,
+} from "@/lib/utils";
 import StatisticsTable from "@/components/StatisticsTable";
 import {
   Loader2,
@@ -11,20 +24,169 @@ import {
   Building2,
   Waves,
   Download,
+  Search,
+  X,
+  RotateCcw,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
 } from "lucide-react";
 
+function MultiSelect({
+  label,
+  options,
+  selected,
+  onChange,
+  labelFn,
+}: {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (v: string[]) => void;
+  labelFn?: (v: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const count = selected.length;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-3 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-slate-50 transition-colors w-full"
+      >
+        <span className="truncate text-left flex-1">
+          {count > 0 ? `${label} (${count})` : label}
+        </span>
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-[var(--muted)] shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-[var(--muted)] shrink-0" />}
+      </button>
+      {open && (
+        <div className="absolute z-30 top-full left-0 mt-1 w-64 max-h-60 overflow-y-auto bg-white border border-[var(--border)] rounded-lg shadow-lg p-2">
+          {options.map((opt) => (
+            <label
+              key={opt}
+              className="flex items-center gap-2 text-sm text-[var(--foreground)] cursor-pointer hover:bg-slate-50 px-2 py-1 rounded"
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(opt)}
+                onChange={() => {
+                  if (selected.includes(opt)) {
+                    onChange(selected.filter((v) => v !== opt));
+                  } else {
+                    onChange([...selected, opt]);
+                  }
+                }}
+                className="rounded border-[var(--border)] text-[var(--primary)]"
+              />
+              <span className="truncate">{labelFn ? labelFn(opt) : opt}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OverzichtPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-[var(--primary)]" />
+      </div>
+    }>
+      <OverzichtContent />
+    </Suspense>
+  );
+}
+
+function OverzichtContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const initialFilters = useMemo(() => {
+    if (searchParams.toString()) {
+      return searchParamsToFilters(searchParams);
+    }
+    return overzichtDefaultFilters;
+  }, []);
+
+  const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [sluizen, setSluizen] = useState<Sluis[]>([]);
   const [stats, setStats] = useState<Statistieken | null>(null);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    provincies: [],
+    gemeenten: [],
+    types: [],
+    categorieen: [],
+    bronnen: [],
+    eigenaars: [],
+  });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Load filter options on mount
+  useEffect(() => {
+    fetchFilterOptions().then(setFilterOptions);
+  }, []);
+
+  // Fetch data when filters change (debounced)
+  const loadData = useCallback((f: FilterState) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setRefreshing(true);
+      Promise.all([fetchSluizen(f), fetchStatistieken(f)]).then(([res, s]) => {
+        setSluizen(res.data);
+        setStats(s);
+        setLoading(false);
+        setRefreshing(false);
+      });
+    }, 300);
+  }, []);
 
   useEffect(() => {
-    Promise.all([fetchSluizen(), fetchStatistieken()]).then(([data, s]) => {
-      setSluizen(data);
-      setStats(s);
-      setLoading(false);
+    loadData(filters);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [filters, loadData]);
+
+  // Sync filters to URL
+  useEffect(() => {
+    const params = filtersToSearchParams(filters);
+    const query = params.toString();
+    const newUrl = query ? `/overzicht?${query}` : "/overzicht";
+    router.replace(newUrl, { scroll: false });
+  }, [filters, router]);
+
+  // Update gemeenten when provincie changes
+  useEffect(() => {
+    fetchFilterOptions(
+      filters.provincie.length > 0 ? filters.provincie : undefined
+    ).then((opts) => {
+      setFilterOptions((prev) => ({ ...prev, gemeenten: opts.gemeenten }));
     });
-  }, []);
+  }, [filters.provincie]);
+
+  const update = (partial: Partial<FilterState>) => {
+    setFilters((prev) => ({ ...prev, ...partial }));
+  };
+
+  const resetFilters = () => {
+    setFilters(overzichtDefaultFilters);
+  };
+
+  const activeFilterCount = [
+    filters.zoek,
+    filters.provincie.length > 0,
+    filters.gemeente.length > 0,
+    filters.type.length > 0,
+    filters.categorie.length > 0,
+    filters.bron.length > 0,
+    filters.eigenaar.length > 0,
+    filters.heeftNaam,
+    filters.heeftAfmetingen,
+    filters.heeftBeheerder,
+  ].filter(Boolean).length;
 
   if (loading) {
     return (
@@ -47,20 +209,138 @@ export default function OverzichtPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-3xl font-bold text-[var(--foreground)] mb-2">
-            Overzicht Sluizen Nederland
+            Overzicht Waterstructuren Nederland
           </h1>
           <p className="text-[var(--muted)]">
-            Statistieken en overzicht van alle sluizen in Nederland
+            Filter en verken alle waterstructuren in Nederland
           </p>
+        </div>
+
+        {/* Filter bar */}
+        <div className="bg-white rounded-xl border border-[var(--border)] shadow-sm p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-[var(--primary)]" />
+              <h2 className="font-semibold text-sm text-[var(--foreground)]">Filters</h2>
+              {activeFilterCount > 0 && (
+                <span className="bg-[var(--accent)] text-white text-xs px-1.5 py-0.5 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {refreshing && (
+                <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
+              )}
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={resetFilters}
+                  className="text-xs text-[var(--muted)] hover:text-[var(--accent)] flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+            <input
+              type="text"
+              placeholder="Zoek op naam, provincie, beheerder..."
+              value={filters.zoek}
+              onChange={(e) => update({ zoek: e.target.value })}
+              className="w-full pl-9 pr-9 py-2 text-sm border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]"
+            />
+            {filters.zoek && (
+              <button
+                onClick={() => update({ zoek: "" })}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+              >
+                <X className="w-4 h-4 text-[var(--muted)]" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter dropdowns */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
+            <MultiSelect
+              label="Provincie"
+              options={[
+                ...filterOptions.provincies.filter((p) => p !== "Onbekend"),
+                ...filterOptions.provincies.filter((p) => p === "Onbekend"),
+              ]}
+              selected={filters.provincie}
+              onChange={(v) => update({ provincie: v, gemeente: [] })}
+            />
+            {filterOptions.gemeenten.length > 0 && (
+              <MultiSelect
+                label="Gemeente"
+                options={[
+                  ...filterOptions.gemeenten.filter((g) => g !== "Onbekend"),
+                  ...filterOptions.gemeenten.filter((g) => g === "Onbekend"),
+                ]}
+                selected={filters.gemeente}
+                onChange={(v) => update({ gemeente: v })}
+              />
+            )}
+            <MultiSelect
+              label="Categorie"
+              options={filterOptions.categorieen}
+              selected={filters.categorie}
+              onChange={(v) => update({ categorie: v })}
+              labelFn={categorieLabel}
+            />
+            <MultiSelect
+              label="Bron"
+              options={filterOptions.bronnen}
+              selected={filters.bron}
+              onChange={(v) => update({ bron: v })}
+              labelFn={bronLabel}
+            />
+          </div>
+
+          {/* Toggle filters */}
+          <div className="flex flex-wrap gap-3 text-sm">
+            <label className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-1 rounded">
+              <input
+                type="checkbox"
+                checked={filters.heeftNaam}
+                onChange={() => update({ heeftNaam: !filters.heeftNaam })}
+                className="rounded border-[var(--border)] text-[var(--primary)]"
+              />
+              Heeft naam
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-1 rounded">
+              <input
+                type="checkbox"
+                checked={filters.heeftAfmetingen}
+                onChange={() => update({ heeftAfmetingen: !filters.heeftAfmetingen })}
+                className="rounded border-[var(--border)] text-[var(--primary)]"
+              />
+              Heeft afmetingen
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-1 rounded">
+              <input
+                type="checkbox"
+                checked={filters.heeftBeheerder}
+                onChange={() => update({ heeftBeheerder: !filters.heeftBeheerder })}
+                className="rounded border-[var(--border)] text-[var(--primary)]"
+              />
+              Heeft beheerder
+            </label>
+          </div>
         </div>
 
         {/* Top stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
             icon={<Anchor className="w-6 h-6" />}
-            label="Totaal sluizen"
+            label="Gevonden"
             value={stats.totaal}
             color="var(--primary)"
           />
@@ -85,97 +365,174 @@ export default function OverzichtPage() {
         </div>
 
         {/* Province stats */}
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Per provincie
-          </h2>
-          <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-[var(--border)]">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-[var(--muted)] uppercase text-xs tracking-wide">
-                    Provincie
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-[var(--muted)] uppercase text-xs tracking-wide">
-                    Totaal
-                  </th>
-                  {stats.bedieningTypes.map((bt) => (
-                    <th
-                      key={bt}
-                      className="px-4 py-3 text-right font-semibold text-[var(--muted)] uppercase text-xs tracking-wide"
-                    >
-                      {bedieningLabel(bt)}
+        {stats.provincies.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
+              Per provincie
+            </h2>
+            <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-[var(--border)]">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-[var(--muted)] uppercase text-xs tracking-wide">
+                      Provincie
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)]">
-                {[
-                  ...stats.provincies.filter((p) => p.naam !== "Onbekend"),
-                  ...stats.provincies.filter((p) => p.naam === "Onbekend"),
-                ].map((p) => {
-                  const isOnbekend = p.naam === "Onbekend";
-                  return (
-                    <tr key={p.naam} className={`hover:bg-slate-50 ${isOnbekend ? "bg-slate-50" : ""}`}>
-                      <td className={`px-4 py-2.5 font-medium ${isOnbekend ? "text-[var(--muted)] italic" : "text-[var(--foreground)]"}`}>
-                        {p.naam}
-                      </td>
-                      <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${isOnbekend ? "text-[var(--muted)]" : "text-[var(--primary)]"}`}>
-                        {p.totaal}
-                      </td>
-                      {stats.bedieningTypes.map((bt) => (
-                        <td
-                          key={bt}
-                          className="px-4 py-2.5 text-right text-[var(--muted)] tabular-nums"
-                        >
-                          {p[bt] || 0}
+                    <th className="px-4 py-3 text-right font-semibold text-[var(--muted)] uppercase text-xs tracking-wide">
+                      Totaal
+                    </th>
+                    {stats.bedieningTypes.map((bt) => (
+                      <th
+                        key={bt}
+                        className="px-4 py-3 text-right font-semibold text-[var(--muted)] uppercase text-xs tracking-wide"
+                      >
+                        {bedieningLabel(bt)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)]">
+                  {[
+                    ...stats.provincies.filter((p) => p.naam !== "Onbekend"),
+                    ...stats.provincies.filter((p) => p.naam === "Onbekend"),
+                  ].map((p) => {
+                    const isOnbekend = p.naam === "Onbekend";
+                    return (
+                      <tr key={p.naam} className={`hover:bg-slate-50 ${isOnbekend ? "bg-slate-50" : ""}`}>
+                        <td className={`px-4 py-2.5 font-medium ${isOnbekend ? "text-[var(--muted)] italic" : "text-[var(--foreground)]"}`}>
+                          {p.naam}
                         </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Type distribution */}
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-            Verdeling per type
-          </h2>
-          <div className="bg-white rounded-lg border border-[var(--border)] p-6 max-w-xl">
-            <div className="space-y-3">
-              {stats.types.map(([type, count]) => (
-                <div key={type}>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="font-medium text-[var(--foreground)] capitalize">
-                      {type}
-                    </span>
-                    <span className="text-[var(--muted)] tabular-nums">
-                      {count} ({((count / stats.totaal) * 100).toFixed(1)}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-3">
-                    <div
-                      className="h-3 rounded-full transition-all"
-                      style={{
-                        width: `${(count / maxTypeCount) * 100}%`,
-                        backgroundColor: "var(--primary)",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+                        <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${isOnbekend ? "text-[var(--muted)]" : "text-[var(--primary)]"}`}>
+                          {(p.totaal as number).toLocaleString("nl-NL")}
+                        </td>
+                        {stats.bedieningTypes.map((bt) => (
+                          <td
+                            key={bt}
+                            className="px-4 py-2.5 text-right text-[var(--muted)] tabular-nums"
+                          >
+                            {p[bt] || 0}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Categorie distribution */}
+          {stats.categorieen && stats.categorieen.length > 0 && (
+            <section>
+              <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
+                Verdeling per categorie
+              </h2>
+              <div className="bg-white rounded-lg border border-[var(--border)] p-6">
+                <div className="space-y-3">
+                  {stats.categorieen.map(([cat, count]) => (
+                    <div key={cat}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="font-medium text-[var(--foreground)]">
+                          {categorieLabel(cat)}
+                        </span>
+                        <span className="text-[var(--muted)] tabular-nums">
+                          {count.toLocaleString("nl-NL")} ({((count / stats.totaal) * 100).toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-3">
+                        <div
+                          className="h-3 rounded-full transition-all"
+                          style={{
+                            width: `${(count / (stats.categorieen[0]?.[1] ?? 1)) * 100}%`,
+                            backgroundColor: typeColor(cat),
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Type distribution */}
+          {stats.types.length > 0 && (
+            <section>
+              <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
+                Verdeling per type
+              </h2>
+              <div className="bg-white rounded-lg border border-[var(--border)] p-6">
+                <div className="space-y-3">
+                  {stats.types.map(([type, count]) => (
+                    <div key={type}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="font-medium text-[var(--foreground)]">
+                          {typeLabel(type)}
+                        </span>
+                        <span className="text-[var(--muted)] tabular-nums">
+                          {count.toLocaleString("nl-NL")} ({((count / stats.totaal) * 100).toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-3">
+                        <div
+                          className="h-3 rounded-full transition-all"
+                          style={{
+                            width: `${(count / maxTypeCount) * 100}%`,
+                            backgroundColor: typeColor(type),
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Bron distribution */}
+        {stats.bronnen && stats.bronnen.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
+              Verdeling per bron
+            </h2>
+            <div className="bg-white rounded-lg border border-[var(--border)] p-6 max-w-xl">
+              <div className="space-y-3">
+                {stats.bronnen.map(([bron, count]) => (
+                  <div key={bron}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="font-medium text-[var(--foreground)]">
+                        {bronLabel(bron)}
+                      </span>
+                      <span className="text-[var(--muted)] tabular-nums">
+                        {count.toLocaleString("nl-NL")} ({((count / stats.totaal) * 100).toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-3">
+                      <div
+                        className="h-3 rounded-full transition-all"
+                        style={{
+                          width: `${(count / (stats.bronnen[0]?.[1] ?? 1)) * 100}%`,
+                          backgroundColor: "var(--primary)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Full table */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[var(--foreground)]">
-              Alle sluizen
+              Resultaten
+              <span className="text-sm font-normal text-[var(--muted)] ml-2">
+                ({sluizen.length.toLocaleString("nl-NL")})
+              </span>
             </h2>
             <button
               onClick={() => exportToCSV(sluizen)}

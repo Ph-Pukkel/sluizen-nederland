@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FilterState, FilterOptions, defaultFilters } from "@/lib/types";
-import { bedieningLabel, typeLabel } from "@/lib/utils";
+import { typeLabel, categorieLabel, bronLabel } from "@/lib/utils";
 import {
   Search,
   ChevronDown,
@@ -149,7 +149,8 @@ export default function FilterPanel({
     filters.provincie.length > 0,
     filters.gemeente.length > 0,
     filters.type.length > 0,
-    filters.bediening.length > 0,
+    filters.categorie.length > 0,
+    filters.bron.length > 0,
     filters.eigenaar.length > 0,
     filters.lengteMin > 0 || filters.lengteMax < 500,
     filters.breedteMin > 0 || filters.breedteMax < 100,
@@ -207,12 +208,34 @@ export default function FilterPanel({
         </div>
 
         <p className="text-xs text-[var(--muted)] mt-2">
-          {resultCount} sluizen gevonden
+          {resultCount.toLocaleString("nl-NL")} waterstructuren gevonden
         </p>
       </div>
 
       {/* Filter sections */}
       <div className="flex-1 overflow-y-auto filter-sidebar">
+        {filterOptions.categorieen && filterOptions.categorieen.length > 0 && (
+          <FilterSection title="Categorie" defaultOpen>
+            <CheckboxGroup
+              options={filterOptions.categorieen}
+              selected={filters.categorie}
+              onChange={(v) => update({ categorie: v })}
+              labelFn={categorieLabel}
+            />
+          </FilterSection>
+        )}
+
+        {filterOptions.bronnen && filterOptions.bronnen.length > 0 && (
+          <FilterSection title="Bron" defaultOpen>
+            <CheckboxGroup
+              options={filterOptions.bronnen}
+              selected={filters.bron}
+              onChange={(v) => update({ bron: v })}
+              labelFn={bronLabel}
+            />
+          </FilterSection>
+        )}
+
         <FilterSection title="Provincie" defaultOpen>
           <CheckboxGroup
             options={[
@@ -292,15 +315,6 @@ export default function FilterPanel({
             selected={filters.type}
             onChange={(v) => update({ type: v })}
             labelFn={typeLabel}
-          />
-        </FilterSection>
-
-        <FilterSection title="Bediening" defaultOpen>
-          <CheckboxGroup
-            options={filterOptions.bedieningen}
-            selected={filters.bediening}
-            onChange={(v) => update({ bediening: v })}
-            labelFn={bedieningLabel}
           />
         </FilterSection>
 

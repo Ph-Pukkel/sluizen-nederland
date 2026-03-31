@@ -19,6 +19,10 @@ export interface Sluis {
   wikipedia: string | null;
   bron?: string | null;
   categorie?: string | null;
+  foto_url?: string | null;
+  foto_bron?: string | null;
+  beschrijving?: string | null;
+  beheerder?: string | null;
   tags?: string | null;
 }
 
@@ -29,7 +33,6 @@ export interface FilterState {
   type: string[];
   categorie: string[];
   bron: string[];
-  bediening: string[];
   eigenaar: string[];
   lengteMin: number;
   lengteMax: number;
@@ -45,15 +48,14 @@ export interface FilterState {
   sortering: 'naam' | 'provincie' | 'grootte';
 }
 
-// Default: only show sluizen categories to keep marker count manageable (~1900)
+// Default: no category filter — viewport-based loading handles performance
 export const defaultFilters: FilterState = {
   zoek: '',
   provincie: [],
   gemeente: [],
   type: [],
-  categorie: ['sluis', 'schutsluis', 'spuisluis', 'sluisdeur'],
+  categorie: [],
   bron: [],
-  bediening: [],
   eigenaar: [],
   lengteMin: 0,
   lengteMax: 500,
@@ -67,6 +69,12 @@ export const defaultFilters: FilterState = {
   heeftAfmetingen: false,
   heeftBeheerder: false,
   sortering: 'naam',
+};
+
+// Overzicht page: no category pre-filter, show all
+export const overzichtDefaultFilters: FilterState = {
+  ...defaultFilters,
+  categorie: [],
 };
 
 export interface Statistieken {
@@ -96,7 +104,6 @@ export interface FilterOptions {
   types: string[];
   categorieen: string[];
   bronnen: string[];
-  bedieningen: string[];
   eigenaars: string[];
 }
 

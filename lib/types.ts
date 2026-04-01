@@ -30,9 +30,9 @@ export interface FilterState {
   zoek: string;
   provincie: string[];
   gemeente: string[];
-  type: string[];
   categorie: string[];
   bron: string[];
+  waterschap: string[];
   eigenaar: string[];
   lengteMin: number;
   lengteMax: number;
@@ -53,9 +53,9 @@ export const defaultFilters: FilterState = {
   zoek: '',
   provincie: [],
   gemeente: [],
-  type: [],
   categorie: [],
   bron: [],
+  waterschap: [],
   eigenaar: [],
   lengteMin: 0,
   lengteMax: 500,
@@ -110,9 +110,9 @@ export interface ProvincieStats {
 export interface FilterOptions {
   provincies: string[];
   gemeenten: string[];
-  types: string[];
   categorieen: string[];
   bronnen: string[];
+  waterschappen: string[];
   eigenaars: string[];
 }
 

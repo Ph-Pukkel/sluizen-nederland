@@ -199,17 +199,17 @@ export function countSluizen(): number {
 export function getFilterOptions(provincie?: string[]): {
   provincies: string[];
   gemeenten: string[];
-  types: string[];
   categorieen: string[];
   bronnen: string[];
+  waterschappen: string[];
   eigenaars: string[];
 } {
   const db = getDb();
   const provincies = getUniqueValues("provincie");
-  const types = getUniqueValues("type");
   const categorieen = getUniqueValues("categorie");
   const bronnen = getUniqueValues("bron");
   const eigenaars = getUniqueValues("eigenaar");
+  const waterschappen = getUniqueValues("beheerder");
 
   let gemeenten: string[];
   if (provincie && provincie.length > 0) {
@@ -226,7 +226,7 @@ export function getFilterOptions(provincie?: string[]): {
     gemeenten = getUniqueValues("gemeente");
   }
 
-  return { provincies, gemeenten, types, categorieen, bronnen, eigenaars };
+  return { provincies, gemeenten, categorieen, bronnen, waterschappen, eigenaars };
 }
 
 export interface Bounds {
@@ -268,11 +268,6 @@ function buildWhereClause(filters?: FilterState, bounds?: Bounds): { where: stri
     conditions.push(`gemeente IN (${ph.join(",")})`);
     filters.gemeente.forEach((g, i) => { params[`fg${i}`] = g; });
   }
-  if (filters.type.length > 0) {
-    const ph = filters.type.map((_, i) => `@ft${i}`);
-    conditions.push(`type IN (${ph.join(",")})`);
-    filters.type.forEach((t, i) => { params[`ft${i}`] = t; });
-  }
   if (filters.categorie.length > 0) {
     const ph = filters.categorie.map((_, i) => `@fc${i}`);
     conditions.push(`categorie IN (${ph.join(",")})`);
@@ -282,6 +277,11 @@ function buildWhereClause(filters?: FilterState, bounds?: Bounds): { where: stri
     const ph = filters.bron.map((_, i) => `@fb${i}`);
     conditions.push(`bron IN (${ph.join(",")})`);
     filters.bron.forEach((b, i) => { params[`fb${i}`] = b; });
+  }
+  if (filters.waterschap.length > 0) {
+    const ph = filters.waterschap.map((_, i) => `@fw${i}`);
+    conditions.push(`beheerder IN (${ph.join(",")})`);
+    filters.waterschap.forEach((w, i) => { params[`fw${i}`] = w; });
   }
   if (filters.eigenaar.length > 0) {
     const ph = filters.eigenaar.map((_, i) => `@fe${i}`);

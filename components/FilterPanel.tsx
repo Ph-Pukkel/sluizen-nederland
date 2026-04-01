@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FilterState, FilterOptions, defaultFilters } from "@/lib/types";
-import { typeLabel, categorieLabel, bronLabel } from "@/lib/utils";
+import { categorieLabel, bronLabel } from "@/lib/utils";
 import {
   Search,
   ChevronDown,
@@ -148,7 +148,7 @@ export default function FilterPanel({
     filters.zoek,
     filters.provincie.length > 0,
     filters.gemeente.length > 0,
-    filters.type.length > 0,
+    filters.waterschap.length > 0,
     filters.categorie.length > 0,
     filters.bron.length > 0,
     filters.eigenaar.length > 0,
@@ -309,14 +309,15 @@ export default function FilterPanel({
           </div>
         </FilterSection>
 
-        <FilterSection title="Type sluis" defaultOpen>
-          <CheckboxGroup
-            options={filterOptions.types}
-            selected={filters.type}
-            onChange={(v) => update({ type: v })}
-            labelFn={typeLabel}
-          />
-        </FilterSection>
+        {filterOptions.waterschappen && filterOptions.waterschappen.length > 0 && (
+          <FilterSection title="Waterschap">
+            <CheckboxGroup
+              options={filterOptions.waterschappen}
+              selected={filters.waterschap}
+              onChange={(v) => update({ waterschap: v })}
+            />
+          </FilterSection>
+        )}
 
         {filterOptions.eigenaars.length > 0 && (
           <FilterSection title="Eigenaar/beheerder">

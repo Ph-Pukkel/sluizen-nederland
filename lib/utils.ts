@@ -55,7 +55,7 @@ export async function fetchFilterOptions(provincies?: string[]): Promise<FilterO
     if (!res.ok) throw new Error('API fout');
     return await res.json() as FilterOptions;
   } catch {
-    return { provincies: [], gemeenten: [], types: [], categorieen: [], bronnen: [], eigenaars: [] };
+    return { provincies: [], gemeenten: [], waterschappen: [], categorieen: [], bronnen: [], eigenaars: [] };
   }
 }
 
@@ -87,9 +87,9 @@ export function filtersToSearchParams(filters: FilterState): URLSearchParams {
   if (filters.zoek) params.set('zoek', filters.zoek);
   filters.provincie.forEach((v) => params.append('provincie', v));
   filters.gemeente.forEach((v) => params.append('gemeente', v));
-  filters.type.forEach((v) => params.append('type', v));
   filters.categorie.forEach((v) => params.append('categorie', v));
   filters.bron.forEach((v) => params.append('bron', v));
+  filters.waterschap.forEach((v) => params.append('waterschap', v));
   filters.eigenaar.forEach((v) => params.append('eigenaar', v));
   if (filters.lengteMin > 0) params.set('lengteMin', String(filters.lengteMin));
   if (filters.lengteMax < 500) params.set('lengteMax', String(filters.lengteMax));
@@ -111,9 +111,9 @@ export function searchParamsToFilters(searchParams: URLSearchParams): FilterStat
     zoek: searchParams.get('zoek') || '',
     provincie: searchParams.getAll('provincie'),
     gemeente: searchParams.getAll('gemeente'),
-    type: searchParams.getAll('type'),
     categorie: searchParams.getAll('categorie'),
     bron: searchParams.getAll('bron'),
+    waterschap: searchParams.getAll('waterschap'),
     eigenaar: searchParams.getAll('eigenaar'),
     lengteMin: Number(searchParams.get('lengteMin')) || 0,
     lengteMax: Number(searchParams.get('lengteMax')) || 500,
@@ -136,9 +136,9 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.zoek !== '' ||
     filters.provincie.length > 0 ||
     filters.gemeente.length > 0 ||
-    filters.type.length > 0 ||
     filters.categorie.length > 0 ||
     filters.bron.length > 0 ||
+    filters.waterschap.length > 0 ||
     filters.eigenaar.length > 0 ||
     filters.lengteMin > 0 ||
     filters.lengteMax < 500 ||

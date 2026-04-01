@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     zoek: searchParams.get("zoek") || "",
     provincie: searchParams.getAll("provincie"),
     gemeente: searchParams.getAll("gemeente"),
-    type: searchParams.getAll("type"),
+    waterschap: searchParams.getAll("waterschap"),
     categorie: searchParams.getAll("categorie"),
     bron: searchParams.getAll("bron"),
     eigenaar: searchParams.getAll("eigenaar"),

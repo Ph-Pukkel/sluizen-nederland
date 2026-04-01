@@ -26,7 +26,7 @@ export default function KaartPage() {
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     provincies: [],
     gemeenten: [],
-    types: [],
+    waterschappen: [],
     categorieen: [],
     bronnen: [],
     eigenaars: [],

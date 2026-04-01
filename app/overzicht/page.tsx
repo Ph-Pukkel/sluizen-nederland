@@ -9,8 +9,6 @@ import {
   fetchFilterOptions,
   fetchFeatured,
   exportToCSV,
-  bedieningLabel,
-  typeLabel,
   typeColor,
   categorieLabel,
   bronLabel,
@@ -122,7 +120,7 @@ function OverzichtContent() {
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     provincies: [],
     gemeenten: [],
-    types: [],
+    waterschappen: [],
     categorieen: [],
     bronnen: [],
     eigenaars: [],
@@ -186,7 +184,7 @@ function OverzichtContent() {
     filters.zoek,
     filters.provincie.length > 0,
     filters.gemeente.length > 0,
-    filters.type.length > 0,
+    filters.waterschap.length > 0,
     filters.categorie.length > 0,
     filters.bron.length > 0,
     filters.eigenaar.length > 0,
@@ -210,8 +208,6 @@ function OverzichtContent() {
       </div>
     );
   }
-
-  const maxTypeCount = stats.types[0]?.[1] ?? 1;
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -514,43 +510,6 @@ function OverzichtContent() {
             </section>
           )}
 
-          {/* Type distribution */}
-          {stats.types.length > 0 && (
-            <section>
-              <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-                Verdeling per type
-              </h2>
-              <div className="bg-white rounded-lg border border-[var(--border)] p-6">
-                <div className="space-y-3">
-                  {stats.types.map(([type, count]) => (
-                    <div
-                      key={type}
-                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => update({ type: [type] })}
-                    >
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="font-medium text-[var(--foreground)]">
-                          {typeLabel(type)}
-                        </span>
-                        <span className="text-[var(--muted)] tabular-nums">
-                          {count.toLocaleString("nl-NL")} ({((count / stats.totaal) * 100).toFixed(1)}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-3">
-                        <div
-                          className="h-3 rounded-full transition-all"
-                          style={{
-                            width: `${(count / maxTypeCount) * 100}%`,
-                            backgroundColor: typeColor(type),
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
         </div>
 
         {/* Bron distribution */}

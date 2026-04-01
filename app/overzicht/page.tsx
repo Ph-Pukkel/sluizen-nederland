@@ -98,6 +98,55 @@ function MultiSelect({
   );
 }
 
+function RangeSlider({
+  label,
+  min,
+  max,
+  valueMin,
+  valueMax,
+  onChangeMin,
+  onChangeMax,
+  unit,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  valueMin: number;
+  valueMax: number;
+  onChangeMin: (v: number) => void;
+  onChangeMax: (v: number) => void;
+  unit?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between text-xs text-[var(--muted)]">
+        <span className="font-medium">{label}</span>
+        <span>
+          {valueMin}{unit ? ` ${unit}` : ""} – {valueMax}{unit ? ` ${unit}` : ""}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={valueMin}
+          onChange={(e) => onChangeMin(Number(e.target.value))}
+          className="flex-1 h-1.5 accent-[var(--primary)]"
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={valueMax}
+          onChange={(e) => onChangeMax(Number(e.target.value))}
+          className="flex-1 h-1.5 accent-[var(--accent)]"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function OverzichtPage() {
   return (
     <Suspense fallback={
@@ -137,6 +186,7 @@ function OverzichtContent() {
   const [exporting, setExporting] = useState(false);
   const [selectedFoto, setSelectedFoto] = useState<Sluis | null>(null);
   const [showAllFotos, setShowAllFotos] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Load filter options on mount
@@ -202,6 +252,11 @@ function OverzichtContent() {
     filters.heeftNaam,
     filters.heeftAfmetingen,
     filters.heeftBeheerder,
+    filters.heeftOpeningstijden,
+    filters.heeftVhf,
+    filters.lengteMin > 0 || filters.lengteMax < 500,
+    filters.breedteMin > 0 || filters.breedteMax < 100,
+    filters.bouwjaarMin > 1500 || filters.bouwjaarMax < 2030,
   ].filter(Boolean).length;
 
   if (loading) {
@@ -288,7 +343,14 @@ function OverzichtContent() {
           </div>
 
           {/* Filter dropdowns */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
+            <MultiSelect
+              label="Categorie"
+              options={filterOptions.categorieen}
+              selected={filters.categorie}
+              onChange={(v) => update({ categorie: v })}
+              labelFn={categorieLabel}
+            />
             <MultiSelect
               label="Provincie"
               options={[
@@ -309,20 +371,6 @@ function OverzichtContent() {
                 onChange={(v) => update({ gemeente: v })}
               />
             )}
-            <MultiSelect
-              label="Categorie"
-              options={filterOptions.categorieen}
-              selected={filters.categorie}
-              onChange={(v) => update({ categorie: v })}
-              labelFn={categorieLabel}
-            />
-            <MultiSelect
-              label="Bron"
-              options={filterOptions.bronnen}
-              selected={filters.bron}
-              onChange={(v) => update({ bron: v })}
-              labelFn={bronLabel}
-            />
             {filterOptions.waterschappen.length > 0 && (
               <MultiSelect
                 label="Waterschap"
@@ -331,37 +379,98 @@ function OverzichtContent() {
                 onChange={(v) => update({ waterschap: v })}
               />
             )}
+            <MultiSelect
+              label="Bron"
+              options={filterOptions.bronnen}
+              selected={filters.bron}
+              onChange={(v) => update({ bron: v })}
+              labelFn={bronLabel}
+            />
+            {filterOptions.eigenaars.length > 0 && (
+              <MultiSelect
+                label="Eigenaar"
+                options={filterOptions.eigenaars}
+                selected={filters.eigenaar}
+                onChange={(v) => update({ eigenaar: v })}
+              />
+            )}
           </div>
 
           {/* Toggle filters */}
-          <div className="flex flex-wrap gap-3 text-sm">
-            <label className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-1 rounded">
-              <input
-                type="checkbox"
-                checked={filters.heeftNaam}
-                onChange={() => update({ heeftNaam: !filters.heeftNaam })}
-                className="rounded border-[var(--border)] text-[var(--primary)]"
-              />
-              Heeft naam
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-1 rounded">
-              <input
-                type="checkbox"
-                checked={filters.heeftAfmetingen}
-                onChange={() => update({ heeftAfmetingen: !filters.heeftAfmetingen })}
-                className="rounded border-[var(--border)] text-[var(--primary)]"
-              />
-              Heeft afmetingen
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-1 rounded">
-              <input
-                type="checkbox"
-                checked={filters.heeftBeheerder}
-                onChange={() => update({ heeftBeheerder: !filters.heeftBeheerder })}
-                className="rounded border-[var(--border)] text-[var(--primary)]"
-              />
-              Heeft beheerder
-            </label>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm mb-3">
+            {(
+              [
+                ["heeftNaam", "Heeft naam"],
+                ["heeftAfmetingen", "Heeft afmetingen"],
+                ["heeftBeheerder", "Heeft beheerder"],
+                ["heeftOpeningstijden", "Heeft openingstijden"],
+                ["heeftVhf", "Heeft VHF kanaal"],
+              ] as [keyof FilterState, string][]
+            ).map(([key, label]) => (
+              <label key={key} className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-1 rounded">
+                <input
+                  type="checkbox"
+                  checked={filters[key] as boolean}
+                  onChange={() => update({ [key]: !filters[key] })}
+                  className="rounded border-[var(--border)] text-[var(--primary)]"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+
+          {/* Advanced filters (sliders + sortering) */}
+          <div>
+            <button
+              onClick={() => setAdvancedOpen(!advancedOpen)}
+              className="flex items-center gap-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              {advancedOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              Geavanceerde filters
+              {(filters.lengteMin > 0 || filters.lengteMax < 500 || filters.breedteMin > 0 || filters.breedteMax < 100 || filters.bouwjaarMin > 1500 || filters.bouwjaarMax < 2030) && (
+                <span className="ml-1 bg-[var(--accent)] text-white text-xs px-1 py-0.5 rounded-full leading-none">●</span>
+              )}
+            </button>
+
+            {advancedOpen && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-[var(--border)]">
+                <RangeSlider
+                  label="Lengte"
+                  min={0} max={500}
+                  valueMin={filters.lengteMin} valueMax={filters.lengteMax}
+                  onChangeMin={(v) => update({ lengteMin: v })}
+                  onChangeMax={(v) => update({ lengteMax: v })}
+                  unit="m"
+                />
+                <RangeSlider
+                  label="Breedte"
+                  min={0} max={100}
+                  valueMin={filters.breedteMin} valueMax={filters.breedteMax}
+                  onChangeMin={(v) => update({ breedteMin: v })}
+                  onChangeMax={(v) => update({ breedteMax: v })}
+                  unit="m"
+                />
+                <RangeSlider
+                  label="Bouwjaar"
+                  min={1500} max={2030}
+                  valueMin={filters.bouwjaarMin} valueMax={filters.bouwjaarMax}
+                  onChangeMin={(v) => update({ bouwjaarMin: v })}
+                  onChangeMax={(v) => update({ bouwjaarMax: v })}
+                />
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-[var(--muted)]">Sortering tabel</span>
+                  <select
+                    value={filters.sortering}
+                    onChange={(e) => update({ sortering: e.target.value as FilterState["sortering"] })}
+                    className="w-full text-sm border border-[var(--border)] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 bg-white"
+                  >
+                    <option value="naam">Naam (A–Z)</option>
+                    <option value="provincie">Provincie</option>
+                    <option value="grootte">Grootte (groot–klein)</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

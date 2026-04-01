@@ -48,12 +48,12 @@ export interface FilterState {
   sortering: 'naam' | 'provincie' | 'grootte';
 }
 
-// Default: no category filter — viewport-based loading handles performance
+// Default: stuw pre-selected as primary category
 export const defaultFilters: FilterState = {
   zoek: '',
   provincie: [],
   gemeente: [],
-  categorie: [],
+  categorie: ['stuw'],
   bron: [],
   waterschap: [],
   eigenaar: [],
@@ -71,10 +71,8 @@ export const defaultFilters: FilterState = {
   sortering: 'naam',
 };
 
-// Overzicht page: no category pre-filter, show all
 export const overzichtDefaultFilters: FilterState = {
   ...defaultFilters,
-  categorie: [],
 };
 
 export interface Statistieken {

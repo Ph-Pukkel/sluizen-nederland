@@ -15,8 +15,7 @@ function getDb(): Database.Database {
     if (!fs.existsSync(DB_PATH)) {
       initializeDatabaseFromJson();
     }
-    _db = new Database(DB_PATH, { readonly: true });
-    _db.pragma("journal_mode = WAL");
+    _db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
   }
   return _db;
 }

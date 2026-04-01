@@ -21,12 +21,14 @@ if (!fs.existsSync(srcPath)) {
   process.exit(1);
 }
 
-// Remove existing deploy db
+// Remove existing deploy db and any WAL files
 if (fs.existsSync(dstPath)) fs.unlinkSync(dstPath);
+if (fs.existsSync(dstPath + "-shm")) fs.unlinkSync(dstPath + "-shm");
+if (fs.existsSync(dstPath + "-wal")) fs.unlinkSync(dstPath + "-wal");
 
 const src = new Database(srcPath, { readonly: true });
 const dst = new Database(dstPath);
-dst.pragma("journal_mode = WAL");
+dst.pragma("journal_mode = DELETE");
 
 dst.exec(`
   CREATE TABLE sluizen (

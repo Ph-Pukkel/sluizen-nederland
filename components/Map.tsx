@@ -94,23 +94,31 @@ export default function MapComponent({ sluizen, onSluisSelect, onBoundsChange }:
     };
     legend.addTo(map);
 
+    let initTimer: ReturnType<typeof setTimeout> | null = null;
+
     // Emit initial bounds after layout has settled
     map.whenReady(() => {
       map.invalidateSize();
       // Small delay to allow flexbox layout to finalize container dimensions
-      setTimeout(() => {
-        const b = map.getBounds();
-        onBoundsChangeRef.current?.({
-          minLat: b.getSouth(),
-          minLon: b.getWest(),
-          maxLat: b.getNorth(),
-          maxLon: b.getEast(),
-        });
+      initTimer = setTimeout(() => {
+        if (!mapRef.current) return; // guard: component may have unmounted
+        try {
+          const b = map.getBounds();
+          onBoundsChangeRef.current?.({
+            minLat: b.getSouth(),
+            minLon: b.getWest(),
+            maxLat: b.getNorth(),
+            maxLon: b.getEast(),
+          });
+        } catch {
+          // map was destroyed before timer fired — ignore
+        }
       }, 50);
     });
 
     // Emit bounds on moveend (covers both pan and zoom)
     map.on("moveend", () => {
+      if (!mapRef.current) return;
       const b = map.getBounds();
       onBoundsChangeRef.current?.({
         minLat: b.getSouth(),
@@ -123,6 +131,7 @@ export default function MapComponent({ sluizen, onSluisSelect, onBoundsChange }:
     mapRef.current = map;
 
     return () => {
+      if (initTimer) clearTimeout(initTimer);
       map.remove();
       mapRef.current = null;
     };

@@ -2,18 +2,21 @@
 
 import { Suspense, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sluis, Statistieken, FilterState, FilterOptions, overzichtDefaultFilters } from "@/lib/types";
+import { Sluis, Statistieken, FilterState, FilterOptions, overzichtDefaultFilters, sluisDisplayNaam } from "@/lib/types";
 import {
   fetchSluizen,
   fetchStatistieken,
   fetchFilterOptions,
-  fetchFeatured,
   exportToCSV,
   typeColor,
+  typeLabel,
   categorieLabel,
   bronLabel,
+  bedieningLabel,
+  bedieningColor,
   filtersToSearchParams,
   searchParamsToFilters,
+  wikipediaUrl,
 } from "@/lib/utils";
 import Link from "next/link";
 import StatisticsTable from "@/components/StatisticsTable";
@@ -30,10 +33,11 @@ import {
   SlidersHorizontal,
   ChevronDown,
   ChevronUp,
-  RefreshCw,
   Camera,
   ChevronRight,
   Tag,
+  ExternalLink,
+  ZoomIn,
 } from "lucide-react";
 
 function MultiSelect({
@@ -125,16 +129,16 @@ function OverzichtContent() {
     bronnen: [],
     eigenaars: [],
   });
-  const [featured, setFeatured] = useState<Sluis[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [selectedFoto, setSelectedFoto] = useState<Sluis | null>(null);
+  const [showAllFotos, setShowAllFotos] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Load filter options and featured sluizen on mount
+  // Load filter options on mount
   useEffect(() => {
     fetchFilterOptions().then(setFilterOptions);
-    fetchFeatured().then(setFeatured);
   }, []);
 
   // Fetch data when filters change (debounced)
@@ -173,7 +177,10 @@ function OverzichtContent() {
     });
   }, [filters.provincie]);
 
+  const sluizenMetFoto = useMemo(() => sluizen.filter(s => s.foto_url), [sluizen]);
+
   const update = (partial: Partial<FilterState>) => {
+    setShowAllFotos(false);
     setFilters((prev) => ({ ...prev, ...partial }));
   };
 
@@ -340,35 +347,66 @@ function OverzichtContent() {
           </div>
         </div>
 
-        {/* Top sluizen */}
-        {featured.length > 0 && (
+        {/* Foto galerij */}
+        {sluizenMetFoto.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
-              Uitgelichte sluizen
-            </h2>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {featured.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/sluis/${s.id.split('/').map(encodeURIComponent).join('/')}`}
-                  className="flex-shrink-0 w-56 bg-white rounded-lg border border-[var(--border)] shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[var(--foreground)]">
+                Foto&apos;s
+                <span className="text-sm font-normal text-[var(--muted)] ml-2">
+                  ({sluizenMetFoto.length}{filters.categorie.length > 0 ? ` in geselecteerde categorie${filters.categorie.length > 1 ? "ën" : ""}` : ""})
+                </span>
+              </h2>
+              {sluizenMetFoto.length > 12 && (
+                <button
+                  onClick={() => setShowAllFotos(!showAllFotos)}
+                  className="text-sm text-[var(--primary)] hover:underline font-medium"
                 >
-                  {s.foto_url && (
-                    <img
-                      src={s.foto_url}
-                      alt={s.naam}
-                      className="w-full h-32 object-cover"
-                      loading="lazy"
-                    />
-                  )}
-                  <div className="p-3">
-                    <p className="font-semibold text-sm text-[var(--foreground)] truncate">{s.naam}</p>
-                    <p className="text-xs text-[var(--muted)]">{s.provincie}</p>
+                  {showAllFotos ? "Minder tonen" : `Alle ${sluizenMetFoto.length} tonen`}
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {(showAllFotos ? sluizenMetFoto : sluizenMetFoto.slice(0, 12)).map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedFoto(s)}
+                  className="group relative overflow-hidden rounded-lg border border-[var(--border)] bg-slate-100 aspect-square hover:shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                >
+                  <img
+                    src={s.foto_url!}
+                    alt={sluisDisplayNaam(s)}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute bottom-0 left-0 right-0 p-2 text-left">
+                      <p className="text-white text-xs font-semibold leading-tight truncate">{sluisDisplayNaam(s)}</p>
+                      <p className="text-white/70 text-xs truncate">{s.provincie}</p>
+                    </div>
                   </div>
-                </Link>
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="bg-black/50 rounded-full p-1 block">
+                      <ZoomIn className="w-3 h-3 text-white" />
+                    </span>
+                  </div>
+                </button>
               ))}
             </div>
+            {!showAllFotos && sluizenMetFoto.length > 12 && (
+              <button
+                onClick={() => setShowAllFotos(true)}
+                className="mt-3 w-full py-2.5 border border-dashed border-[var(--border)] rounded-lg text-sm text-[var(--muted)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+              >
+                + {sluizenMetFoto.length - 12} meer foto&apos;s tonen
+              </button>
+            )}
           </section>
+        )}
+
+        {/* Foto modal */}
+        {selectedFoto && (
+          <FotoModal sluis={selectedFoto} onClose={() => setSelectedFoto(null)} />
         )}
 
         {/* Top stats */}
@@ -572,6 +610,129 @@ function OverzichtContent() {
           </div>
           <StatisticsTable sluizen={sluizen} />
         </section>
+      </div>
+    </div>
+  );
+}
+
+function FotoModal({ sluis, onClose }: { sluis: Sluis; onClose: () => void }) {
+  const encodedId = sluis.id.split('/').map(encodeURIComponent).join('/');
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[92vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Foto */}
+        <div className="relative">
+          <img
+            src={sluis.foto_url!}
+            alt={sluisDisplayNaam(sluis)}
+            className="w-full h-56 sm:h-72 object-cover rounded-t-2xl"
+          />
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 bg-black/50 hover:bg-black/75 text-white rounded-full p-1.5 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="absolute bottom-3 left-3">
+            <span
+              className="text-white text-xs px-2.5 py-1 rounded-full font-medium shadow"
+              style={{ backgroundColor: typeColor(sluis.type) }}
+            >
+              {typeLabel(sluis.type)}
+            </span>
+          </div>
+        </div>
+
+        {/* Inhoud */}
+        <div className="p-5">
+          {/* Naam + locatie */}
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-[var(--foreground)] leading-tight">
+              {sluisDisplayNaam(sluis)}
+            </h2>
+            <p className="text-sm text-[var(--muted)] mt-0.5 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              {sluis.gemeente ? `${sluis.gemeente}, ` : ''}{sluis.provincie}
+            </p>
+          </div>
+
+          {/* Details */}
+          {(sluis.lengte || sluis.breedte || sluis.diepte || sluis.eigenaar || sluis.bouwjaar || sluis.vhf || sluis.openingstijden) && (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm bg-slate-50 rounded-lg p-4 mb-4">
+              {sluis.lengte != null && (
+                <><span className="text-[var(--muted)]">Lengte</span><span className="font-medium">{sluis.lengte} m</span></>
+              )}
+              {sluis.breedte != null && (
+                <><span className="text-[var(--muted)]">Breedte</span><span className="font-medium">{sluis.breedte} m</span></>
+              )}
+              {sluis.diepte != null && (
+                <><span className="text-[var(--muted)]">Diepte</span><span className="font-medium">{sluis.diepte} m</span></>
+              )}
+              {sluis.eigenaar && (
+                <><span className="text-[var(--muted)]">Beheerder</span><span className="font-medium truncate">{sluis.eigenaar}</span></>
+              )}
+              {sluis.bouwjaar && (
+                <><span className="text-[var(--muted)]">Bouwjaar</span><span className="font-medium">{sluis.bouwjaar}</span></>
+              )}
+              {sluis.vhf && (
+                <><span className="text-[var(--muted)]">VHF</span><span className="font-medium">{sluis.vhf}</span></>
+              )}
+              {sluis.openingstijden && (
+                <><span className="text-[var(--muted)]">Openingstijden</span><span className="font-medium text-xs">{sluis.openingstijden}</span></>
+              )}
+            </div>
+          )}
+
+          {/* Externe links */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <a href={`https://www.google.com/maps?q=&layer=c&cbll=${sluis.lat},${sluis.lon}`} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium text-[var(--foreground)] transition-colors">
+              <ExternalLink className="w-3 h-3" /> Street View
+            </a>
+            <a href={`https://earth.google.com/web/search/${sluis.lat},${sluis.lon}`} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium text-[var(--foreground)] transition-colors">
+              <ExternalLink className="w-3 h-3" /> Google Earth
+            </a>
+            <a href={`https://www.google.com/maps/@${sluis.lat},${sluis.lon},100m/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium text-[var(--foreground)] transition-colors">
+              <ExternalLink className="w-3 h-3" /> Satelliet
+            </a>
+            {sluis.wikipedia && (
+              <a href={wikipediaUrl(sluis.wikipedia)} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-medium text-blue-700 transition-colors">
+                <ExternalLink className="w-3 h-3" /> Wikipedia
+              </a>
+            )}
+            {sluis.website && (
+              <a href={sluis.website} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-medium text-blue-700 transition-colors">
+                <ExternalLink className="w-3 h-3" /> Website
+              </a>
+            )}
+          </div>
+
+          {/* Naar detailpagina */}
+          <Link
+            href={`/sluis/${encodedId}`}
+            className="block w-full text-center py-2.5 bg-[var(--primary)] text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            Volledige detailpagina →
+          </Link>
+        </div>
       </div>
     </div>
   );

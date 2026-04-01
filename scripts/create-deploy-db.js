@@ -16,6 +16,11 @@ const srcPath = path.join(__dirname, "../database/sluizen.db");
 const dstPath = path.join(__dirname, "../database/sluizen_deploy.db");
 
 if (!fs.existsSync(srcPath)) {
+  if (fs.existsSync(dstPath)) {
+    // Deploy DB already present (e.g. on Vercel where sluizen.db is not committed)
+    console.log("Source database not found, but deploy DB already exists — skipping rebuild.");
+    process.exit(0);
+  }
   console.error("Source database not found:", srcPath);
   console.error("Run `npm run import` first to create the full database.");
   process.exit(1);

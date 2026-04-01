@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   // Parse limit/offset
   const limit = Math.min(
     parseInt(searchParams.get("limit") || "10000"),
-    10000
+    100000
   );
   const offset = parseInt(searchParams.get("offset") || "0");
 

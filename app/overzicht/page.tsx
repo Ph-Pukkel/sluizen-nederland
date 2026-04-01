@@ -128,6 +128,7 @@ function OverzichtContent() {
   const [featured, setFeatured] = useState<Sluis[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Load filter options and featured sluizen on mount
@@ -141,7 +142,7 @@ function OverzichtContent() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setRefreshing(true);
-      Promise.all([fetchSluizen(f), fetchStatistieken(f)]).then(([res, s]) => {
+      Promise.all([fetchSluizen(f, 100000), fetchStatistieken(f)]).then(([res, s]) => {
         setSluizen(res.data);
         setStats(s);
         setLoading(false);
@@ -556,11 +557,17 @@ function OverzichtContent() {
               </span>
             </h2>
             <button
-              onClick={() => exportToCSV(sluizen)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--primary-light)] transition-colors"
+              onClick={async () => {
+                setExporting(true);
+                const res = await fetchSluizen(filters, 100000);
+                exportToCSV(res.data);
+                setExporting(false);
+              }}
+              disabled={exporting}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--primary-light)] transition-colors disabled:opacity-60"
             >
-              <Download className="w-4 h-4" />
-              Export CSV
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {exporting ? "Laden..." : `Export CSV (${stats.totaal.toLocaleString("nl-NL")})`}
             </button>
           </div>
           <StatisticsTable sluizen={sluizen} />

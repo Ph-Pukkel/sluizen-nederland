@@ -50,7 +50,7 @@ export default function KaartPage() {
 
     debounceRef.current = setTimeout(() => {
       setLoading(true);
-      fetchSluizen(filters, 10000, 0, bounds).then((res) => {
+      fetchSluizen(filters, 100000, 0, bounds).then((res) => {
         setSluizen(res.data);
         totalCountRef.current = res.total_count;
         setLoading(false);

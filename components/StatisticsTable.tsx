@@ -7,7 +7,7 @@ import { Sluis, sluisDisplayNaam } from "@/lib/types";
 import { bedieningLabel, bedieningColor, typeColor, typeLabel, categorieLabel, bronLabel } from "@/lib/utils";
 import { ArrowUpDown, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 
-type SortKey = "naam" | "provincie" | "gemeente" | "categorie" | "type" | "bron" | "lengte" | "breedte" | "eigenaar";
+type SortKey = "naam" | "provincie" | "gemeente" | "categorie" | "type" | "bron" | "lengte" | "breedte" | "eigenaar" | "foto";
 type SortDir = "asc" | "desc";
 
 interface StatisticsTableProps {
@@ -18,8 +18,8 @@ const PAGE_SIZE = 50;
 
 export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
   const router = useRouter();
-  const [sortKey, setSortKey] = useState<SortKey>("naam");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("foto");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
 
   const sorted = useMemo(() => {
@@ -52,6 +52,9 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
           break;
         case "eigenaar":
           cmp = (a.eigenaar ?? "").localeCompare(b.eigenaar ?? "", "nl");
+          break;
+        case "foto":
+          cmp = (a.foto_url ? 1 : 0) - (b.foto_url ? 1 : 0);
           break;
       }
       return sortDir === "asc" ? cmp : -cmp;
@@ -95,9 +98,7 @@ export default function StatisticsTable({ sluizen }: StatisticsTableProps) {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-[var(--border)]">
             <tr>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">
-                Foto
-              </th>
+              <SortHeader label="Foto" colKey="foto" />
               <SortHeader label="Naam" colKey="naam" />
               <SortHeader label="Provincie" colKey="provincie" />
               <SortHeader label="Gemeente" colKey="gemeente" />

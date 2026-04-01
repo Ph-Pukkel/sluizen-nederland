@@ -61,12 +61,12 @@ export default function MapComponent({ sluizen, onSluisSelect, onBoundsChange }:
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: [52.2, 5.3],
-      zoom: 8,
       minZoom: 6,
       maxZoom: 18,
       zoomControl: true,
     });
+    // Start with full Netherlands in view, regardless of container size
+    map.fitBounds([[50.75, 3.35], [53.55, 7.23]]);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution:
@@ -94,15 +94,19 @@ export default function MapComponent({ sluizen, onSluisSelect, onBoundsChange }:
     };
     legend.addTo(map);
 
-    // Emit initial bounds after map is ready
+    // Emit initial bounds after layout has settled
     map.whenReady(() => {
-      const b = map.getBounds();
-      onBoundsChangeRef.current?.({
-        minLat: b.getSouth(),
-        minLon: b.getWest(),
-        maxLat: b.getNorth(),
-        maxLon: b.getEast(),
-      });
+      map.invalidateSize();
+      // Small delay to allow flexbox layout to finalize container dimensions
+      setTimeout(() => {
+        const b = map.getBounds();
+        onBoundsChangeRef.current?.({
+          minLat: b.getSouth(),
+          minLon: b.getWest(),
+          maxLat: b.getNorth(),
+          maxLon: b.getEast(),
+        });
+      }, 50);
     });
 
     // Emit bounds on moveend (covers both pan and zoom)

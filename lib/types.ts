@@ -91,6 +91,8 @@ export interface Statistieken {
   metAfmetingen: number;
   metBeheerder: number;
   metFoto: number;
+  metOpeningstijden: number;
+  metVhf: number;
   provincieDetails: ProvincieDetailStats[];
 }
 

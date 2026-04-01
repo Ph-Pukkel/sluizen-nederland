@@ -432,6 +432,20 @@ export function computeStatistieken(filters?: FilterState) {
     db.prepare(`SELECT COUNT(*) as c FROM sluizen ${fotoWhere}`).get(params) as { c: number }
   ).c;
 
+  const openWhere = where
+    ? `${where} AND openingstijden IS NOT NULL`
+    : "WHERE openingstijden IS NOT NULL";
+  const metOpeningstijden = (
+    db.prepare(`SELECT COUNT(*) as c FROM sluizen ${openWhere}`).get(params) as { c: number }
+  ).c;
+
+  const vhfWhere = where
+    ? `${where} AND vhf IS NOT NULL`
+    : "WHERE vhf IS NOT NULL";
+  const metVhf = (
+    db.prepare(`SELECT COUNT(*) as c FROM sluizen ${vhfWhere}`).get(params) as { c: number }
+  ).c;
+
   return {
     totaal,
     provincies,
@@ -446,6 +460,8 @@ export function computeStatistieken(filters?: FilterState) {
     metAfmetingen,
     metBeheerder,
     metFoto,
+    metOpeningstijden,
+    metVhf,
     provincieDetails: getProvincieDetailStatsInternal(where, params),
   };
 }

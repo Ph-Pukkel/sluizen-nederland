@@ -38,6 +38,9 @@ import {
   Tag,
   ExternalLink,
   ZoomIn,
+  Clock,
+  Radio,
+  Map,
 } from "lucide-react";
 
 function MultiSelect({
@@ -245,6 +248,13 @@ function OverzichtContent() {
               {refreshing && (
                 <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
               )}
+              <a
+                href={`/kaart?${filtersToSearchParams(filters).toString()}`}
+                className="text-xs text-[var(--primary)] hover:text-[var(--accent)] flex items-center gap-1 border border-[var(--border)] rounded px-2 py-1 hover:bg-slate-50"
+              >
+                <Map className="w-3 h-3" />
+                Toon op kaart
+              </a>
               {activeFilterCount > 0 && (
                 <button
                   onClick={resetFilters}
@@ -313,6 +323,14 @@ function OverzichtContent() {
               onChange={(v) => update({ bron: v })}
               labelFn={bronLabel}
             />
+            {filterOptions.waterschappen.length > 0 && (
+              <MultiSelect
+                label="Waterschap"
+                options={filterOptions.waterschappen}
+                selected={filters.waterschap}
+                onChange={(v) => update({ waterschap: v })}
+              />
+            )}
           </div>
 
           {/* Toggle filters */}
@@ -410,7 +428,7 @@ function OverzichtContent() {
         )}
 
         {/* Top stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
             icon={<Anchor className="w-6 h-6" />}
             label="Gevonden"
@@ -447,7 +465,44 @@ function OverzichtContent() {
             value={stats.metFoto}
             color="#d97706"
           />
+          <StatCard
+            icon={<Clock className="w-6 h-6" />}
+            label="Openingstijden"
+            value={stats.metOpeningstijden}
+            color="#059669"
+          />
+          <StatCard
+            icon={<Radio className="w-6 h-6" />}
+            label="VHF kanaal"
+            value={stats.metVhf}
+            color="#6366f1"
+          />
         </div>
+
+        {/* Informatieve sectie over waterbeheer */}
+        <section className="mb-8 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-100 p-6">
+          <h2 className="text-lg font-semibold text-[var(--foreground)] mb-3">
+            Waterbeheer in Nederland
+          </h2>
+          <div className="text-sm text-slate-700 leading-relaxed space-y-2">
+            <p>
+              Nederland telt duizenden waterstructuren: sluizen voor scheepvaart en waterpeilbeheer,
+              stuwen die het waterpeil reguleren, en gemalen die water verpompen naar hoger gelegen
+              gebieden. Samen vormen zij de ruggengraat van het Nederlandse waterbeheer.
+            </p>
+            <p>
+              Het beheer is verdeeld over Rijkswaterstaat (hoofdwateren en rijksvaarwegen),
+              21 waterschappen (regionaal peilbeheer en waterkwaliteit), en provincies en gemeenten.
+              Dit systeem, ontstaan in de Middeleeuwen, maakt het mogelijk dat grote delen van
+              Nederland veilig onder zeeniveau liggen.
+            </p>
+            <p>
+              Deze database brengt alle bekende waterstructuren in kaart op basis van
+              OpenStreetMap, Rijkswaterstaat, Wikidata en het Basisregistratie Grootschalige
+              Topografie (BGT), en maakt ze doorzoekbaar en vergelijkbaar.
+            </p>
+          </div>
+        </section>
 
         {/* Province stats */}
         {stats.provincieDetails && stats.provincieDetails.length > 0 && (
